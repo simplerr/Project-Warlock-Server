@@ -12,6 +12,7 @@ namespace GLib {
 class ServerSkillInterpreter;
 class CollisionHandler;
 class Player;
+class ItemLoaderXML;
 
 class Server
 {
@@ -45,6 +46,8 @@ public:
 	void HandleConnectionLost(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleConnectionData(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
+	void HandleItemAdded(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
+	void HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleTargetAdded(RakNet::BitStream& bitstream);
 	void HandleSkillCasted(RakNet::BitStream& bitstream);
 
@@ -55,6 +58,7 @@ private:
 	CollisionHandler*			mCollisionHandler;
 	vector<Player*>				mPlayerList;
 	Player*						mTestDoll;
+	ItemLoaderXML*				mItemLoader;
 	float						mTickRate;
 	float						mTickCounter;
 	float						mDamageCounter;

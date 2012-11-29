@@ -11,6 +11,7 @@
 #include "NetworkMessages.h"
 #include "Player.h"
 #include "ServerSkillInterpreter.h"
+#include "ItemLoaderXML.h"
 
 Server::Server()
 {
@@ -27,6 +28,7 @@ Server::Server()
 
 	mSkillInterpreter = new ServerSkillInterpreter();
 	mCollisionHandler = new CollisionHandler();
+	mItemLoader = new ItemLoaderXML("F:\\Users\\Axel\\Documents\\Visual Studio 11\\Projects\\Project Warlock\\Project Warlock\\items.xml");	// [NOTE]!
 
 	// Connect the graphics light list.
 	GLib::GetGraphics()->SetLightList(mWorld->GetLights());
@@ -47,6 +49,7 @@ Server::~Server()
 	delete mWorld;
 	delete mSkillInterpreter;
 	delete mCollisionHandler;
+	delete mItemLoader;
 
 	// Tell the opponent that you left
 	/*RakNet::BitStream bitstream;
@@ -201,6 +204,12 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 		case NMSG_SKILL_CAST:
 			HandleSkillCasted(bitstream);
 			break;
+		case NMSG_ITEM_ADDED:
+			HandleItemAdded(bitstream, pPacket->systemAddress);
+			break;
+		case NMSG_ITEM_REMOVED:
+			HandleItemRemoved(bitstream, pPacket->systemAddress);
+			break;
 	}
 
 	return true;
@@ -259,7 +268,7 @@ void Server::HandleTargetAdded(RakNet::BitStream& bitstream)
 	for(int i = 0; i < objects->size(); i++)
 	{
 		Actor* actor = (Actor*)objects->operator[](i);
-		if(actor->GetId() == id && actor->GetSpeed() < 0.09f ) {
+		if(actor->GetId() == id && !actor->IsKnockedBack()) {
 			actor->AddTarget(XMFLOAT3(x, y, z), clear);
 
 			// Send the TARGET_ADDED to all clients.
@@ -319,6 +328,48 @@ void Server::HandleSkillCasted(RakNet::BitStream& bitstream)
 	unsigned char skillCasted;
 	bitstream.Read(skillCasted);
 	mSkillInterpreter->Interpret(this, (MessageId)skillCasted, bitstream);
+}
+
+void Server::HandleItemAdded(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
+{
+	ItemName name;
+	int playerId, level;
+	bitstream.Read(playerId);
+	bitstream.Read(name);
+	bitstream.Read(level);
+
+	Player* player = (Player*)mWorld->GetObjectById(playerId);
+	player->AddItem(mItemLoader, ItemKey(name, level));
+
+	// Send to all client except to the one it came from.
+	RakNet::BitStream sendBitstream;
+	sendBitstream.Write((unsigned char)NMSG_ITEM_ADDED);
+	sendBitstream.Write(playerId);
+	sendBitstream.Write(name);
+	sendBitstream.Write(level);
+
+	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, adress, true);
+}
+
+void Server::HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
+{
+	ItemName name;
+	int playerId, level;
+	bitstream.Read(playerId);
+	bitstream.Read(name);
+	bitstream.Read(level);
+
+	Player* player = (Player*)mWorld->GetObjectById(playerId);
+	player->RemoveItem(mItemLoader, ItemKey(name, level));
+
+	// Send to all client except to the one it came from.
+	RakNet::BitStream sendBitstream;
+	sendBitstream.Write((unsigned char)NMSG_ITEM_REMOVED);
+	sendBitstream.Write(playerId);
+	sendBitstream.Write(name);
+	sendBitstream.Write(level);
+
+	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, adress, true);
 }
 
 void Server::BroadcastWorld()
