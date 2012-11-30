@@ -48,6 +48,7 @@ public:
 	void HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleItemAdded(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
+	void HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleTargetAdded(RakNet::BitStream& bitstream);
 	void HandleSkillCasted(RakNet::BitStream& bitstream);
 

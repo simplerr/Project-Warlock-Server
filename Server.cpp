@@ -210,6 +210,9 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 		case NMSG_ITEM_REMOVED:
 			HandleItemRemoved(bitstream, pPacket->systemAddress);
 			break;
+		case NMSG_GOLD_CHANGE:
+			HandleGoldChange(bitstream, pPacket->systemAddress);
+			break;
 	}
 
 	return true;
@@ -372,6 +375,15 @@ void Server::HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddre
 	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, adress, true);
 }
 
+void Server::HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
+{
+	int id, gold;
+	bitstream.Read(id);
+	bitstream.Read(gold);
+
+	((Player*)mWorld->GetObjectById(id))->SetGold(gold);
+}
+
 void Server::BroadcastWorld()
 {
 	// Broadcast world data at a set tickrate.
@@ -390,7 +402,11 @@ void Server::BroadcastWorld()
 		bitstream.Write(pos.z);
 
 		if(object->GetType() == GLib::PLAYER)
-			bitstream.Write(((Player*)object)->GetHealth());
+		{
+			Player* player = (Player*)object;
+			bitstream.Write(player->GetHealth());
+			bitstream.Write(player->GetGold());
+		}
 
 		mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	}
