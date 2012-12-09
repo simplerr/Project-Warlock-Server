@@ -3,6 +3,7 @@
 #include "World.h"
 #include "Projectile.h"
 #include "Skills.h"
+#include "Items.h"
 
 ServerSkillInterpreter::ServerSkillInterpreter()
 {
@@ -22,7 +23,7 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 	{
 		XMFLOAT3 start, end, dir;
 		int owner, skillLevel;
-		SkillType skillType;
+		ItemName skillType;
 
 		bitstream.Read(owner);
 		bitstream.Read(skillType);

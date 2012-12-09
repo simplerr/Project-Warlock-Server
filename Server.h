@@ -1,6 +1,12 @@
 #pragma once
 #include "RakPeerInterface.h"
 #include "d3dUtil.h"
+#include "States.h"
+#include "ServerCvars.h"
+#include <string>
+#include <map>
+
+using namespace std;
 
 namespace GLib {
 	class Input;
@@ -11,6 +17,7 @@ namespace GLib {
 
 class ServerSkillInterpreter;
 class CollisionHandler;
+class RoundHandler;
 class Player;
 class ItemLoaderXML;
 
@@ -35,9 +42,12 @@ public:
 	void SendClientMessage(RakNet::BitStream& bitstream);
 	void BroadcastWorld();
 
-	RakNet::RakPeerInterface* GetRaknetPeer();
-	vector<string> GetConnectedClients();
-	GLib::World* GetWorld();
+	RakNet::RakPeerInterface*	GetRaknetPeer();
+	vector<string>				GetConnectedClients();
+	GLib::World*				GetWorld();
+	int							GetCvarValue(string cvar);
+
+	void SetGameSate(GameState state);
 
 	//
 	// Handle packet functions.
@@ -46,12 +56,18 @@ public:
 	void HandleConnectionLost(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleConnectionData(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
+	void HandleCvarListRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleItemAdded(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleTargetAdded(RakNet::BitStream& bitstream);
 	void HandleSkillCasted(RakNet::BitStream& bitstream);
+	void HandleChatMessage(RakNet::BitStream& bitstream);
 
+	void DrawScores(GLib::Graphics* pGraphics);
+
+	bool IsHost(string name);
+	bool IsCvarCommand(string cmd);
 private:
 	RakNet::RakPeerInterface*	mRaknetPeer;
 	GLib::World*				mWorld;
@@ -60,7 +76,11 @@ private:
 	vector<Player*>				mPlayerList;
 	Player*						mTestDoll;
 	ItemLoaderXML*				mItemLoader;
+	ServerCvars					mCvars;
 	float						mTickRate;
 	float						mTickCounter;
 	float						mDamageCounter;
+
+	RoundHandler*				mRoundHandler;
+	map<string, int>			mScoreMap;
 };

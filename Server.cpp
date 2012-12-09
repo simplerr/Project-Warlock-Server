@@ -1,3 +1,5 @@
+#include <time.h>
+#include "Utils.h"
 #include "CollisionHandler.h"
 #include "Server.h"
 #include "Input.h"
@@ -12,9 +14,12 @@
 #include "Player.h"
 #include "ServerSkillInterpreter.h"
 #include "ItemLoaderXML.h"
+#include "RoundHandler.h"
 
 Server::Server()
 {
+	srand(time(0));
+
 	// Create the RakNet peer
 	mRaknetPeer = RakNet::RakPeerInterface::GetInstance();
 
@@ -42,6 +47,10 @@ Server::Server()
 	mWorld->AddObject(mTestDoll);
 
 	mTickCounter = mDamageCounter = 0.0f;
+
+	mRoundHandler = new RoundHandler();
+	mRoundHandler->SetServer(this);
+	mRoundHandler->SetPlayerList(&mPlayerList);
 }
 
 Server::~Server()
@@ -50,11 +59,7 @@ Server::~Server()
 	delete mSkillInterpreter;
 	delete mCollisionHandler;
 	delete mItemLoader;
-
-	// Tell the opponent that you left
-	/*RakNet::BitStream bitstream;
-	bitstream.Write((unsigned char)ID_LEFT_GAME);
-	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);*/
+	delete mRoundHandler;
 
 	mRaknetPeer->Shutdown(300);
 	RakNet::RakPeerInterface::DestroyInstance(mRaknetPeer);
@@ -64,7 +69,10 @@ void Server::Update(GLib::Input* pInput, float dt)
 {
 	// Update the world.
 	mWorld->Update(dt);
-	
+
+	// Update the world handler.
+	mRoundHandler->Update(pInput, dt);
+
 	// Deal damage to players outside the arena.
 	mDamageCounter += dt;
 	if(mDamageCounter > 0.1f)
@@ -75,7 +83,7 @@ void Server::Update(GLib::Input* pInput, float dt)
 
 			// Arena is 60 units in radius.
 			if(distFromCenter > 60.0f)
-				mPlayerList[i]->SetHealth(mPlayerList[i]->GetHealth() - 1.0f);
+				mPlayerList[i]->SetHealth(mPlayerList[i]->GetHealth() - mCvars.GetCvarValue(Cvars::LAVA_DMG));
 
 		}
 		mDamageCounter = 0.0f;
@@ -84,7 +92,22 @@ void Server::Update(GLib::Input* pInput, float dt)
 	// Broadcast the world at a fixed rate.
 	mTickCounter += dt;
 	if(mTickCounter > mTickRate) {
+		// Find out if there is only 1 player alive (round ended).
+		string winner;
+		if(mRoundHandler->HasRoundEnded(winner))
+		{
+			// Send round ended message.
+			RakNet::BitStream bitstream;
+			bitstream.Write((unsigned char)NMSG_ROUND_ENDED);
+			bitstream.Write(winner.c_str());
+			SendClientMessage(bitstream);
+
+			// Increment winners score.
+			mScoreMap[winner]++;
+		}
+
 		BroadcastWorld();
+		mRoundHandler->BroadcastStateTimer();
 		mTickCounter = 0.0f;
 	}
 
@@ -95,6 +118,27 @@ void Server::Update(GLib::Input* pInput, float dt)
 void Server::Draw(GLib::Graphics* pGraphics)
 {
 	mWorld->Draw(pGraphics);
+
+	mRoundHandler->Draw(pGraphics);
+
+	char buffer[244];
+	sprintf(buffer, "Timer: %.2f", mRoundHandler->GetArenaState().elapsed);
+	pGraphics->DrawText(buffer, 10, 40, 14);
+
+	DrawScores(pGraphics);
+}
+
+void Server::DrawScores(GLib::Graphics* pGraphics)
+{
+	string scoreList;
+	for(auto iter = mScoreMap.begin(); iter != mScoreMap.end(); iter++)
+	{
+		char score[10];
+		sprintf(score, "%i", (*iter).second);
+		scoreList += (*iter).first + ": " + score + "\n";
+	}
+
+	pGraphics->DrawText(scoreList, 10, 100, 14);
 }
 
 //! Gets called in World::AddObject().
@@ -132,19 +176,22 @@ void Server::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pObject
 		if(projectile->GetOwner() == player->GetId())
 			return;
 	
-		// Checks what skill the projectile is and uses the XML data to determine the skill attributes
-		// depending on the skill level.
-		mCollisionHandler->HandleCollision(player, projectile);
+		if(mRoundHandler->GetArenaState().state != SHOPPING_STATE)
+		{
+			// Checks what skill the projectile is and uses the XML data to determine the skill attributes
+			// depending on the skill level.
+			mCollisionHandler->HandleCollision(player, projectile, mCvars.GetCvarValue(Cvars::PROJECTILE_IMPULSE));
 
-		// Let the clients now about the changes immediately.
-		BroadcastWorld();
+			// Let the clients now about the changes immediately.
+			BroadcastWorld();
 
-		// Tell all clients about the collision.
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_PROJECTILE_PLAYER_COLLISION);
-		bitstream.Write(projectile->GetId());	// Projectile Id.
-		bitstream.Write(player->GetId());	// Player Id.
-		SendClientMessage(bitstream);
+			// Tell all clients about the collision.
+			RakNet::BitStream bitstream;
+			bitstream.Write((unsigned char)NMSG_PROJECTILE_PLAYER_COLLISION);
+			bitstream.Write(projectile->GetId());	// Projectile Id.
+			bitstream.Write(player->GetId());	// Player Id.
+			SendClientMessage(bitstream);
+		}
 
 		// Remove the projectile.
 		mWorld->RemoveObject(projectile);
@@ -213,6 +260,12 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 		case NMSG_GOLD_CHANGE:
 			HandleGoldChange(bitstream, pPacket->systemAddress);
 			break;
+		case NMSG_CHAT_MESSAGE_SENT:
+			HandleChatMessage(bitstream);
+			break;
+		case NMSG_REQUEST_CVAR_LIST:
+			HandleCvarListRequest(bitstream, pPacket->systemAddress);
+			break;
 	}
 
 	return true;
@@ -224,6 +277,7 @@ void Server::HandleNewConnection(RakNet::BitStream& bitstream, RakNet::SystemAdd
 	// The message contains the players already connected.
 	RakNet::BitStream sendBitstream;
 	sendBitstream.Write((unsigned char)NMSG_CONNECTION_SUCCESS);
+	sendBitstream.Write(mRoundHandler->GetArenaState().state);
 	sendBitstream.Write(mWorld->GetNumObjects(GLib::PLAYER));
 
 	GLib::ObjectList* objects = mWorld->GetObjects();
@@ -302,9 +356,16 @@ void Server::HandleConnectionData(RakNet::BitStream& bitstream, RakNet::SystemAd
 	sendBitstream.Write((unsigned char)NMSG_ADD_PLAYER);
 	sendBitstream.Write(name.c_str());
 	sendBitstream.Write(player->GetId());
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::START_GOLD));
+
+	// Set starting score.
+	mScoreMap[name] = 0;
 
 	// Send the message to all clients. ("PlayerName has connected to the game").
 	mRaknetPeer->Send(&sendBitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+
+	// [NOTE][TEMP] Start the round.
+	mRoundHandler->StartRound();
 }
 
 void Server::HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
@@ -322,6 +383,23 @@ void Server::HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddr
 		if(object->GetType() == GLib::PLAYER)
 			sendBitstream.Write(object->GetName().c_str());
 	}
+
+	mRaknetPeer->Send(&sendBitstream, HIGH_PRIORITY, RELIABLE, 0, adress, false);
+}
+
+void Server::HandleCvarListRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
+{
+	// Send all client names back to the requested client.
+	RakNet::BitStream sendBitstream;
+	sendBitstream.Write((unsigned char)NMSG_REQUEST_CVAR_LIST);
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::START_GOLD));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::SHOP_TIME));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::ROUND_TIME));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::NUM_ROUNDS));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::GOLD_PER_KILL));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::GOLD_PER_WIN));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::LAVA_DMG));
+	sendBitstream.Write(mCvars.GetCvarValue(Cvars::PROJECTILE_IMPULSE));
 
 	mRaknetPeer->Send(&sendBitstream, HIGH_PRIORITY, RELIABLE, 0, adress, false);
 }
@@ -363,7 +441,9 @@ void Server::HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddre
 	bitstream.Read(level);
 
 	Player* player = (Player*)mWorld->GetObjectById(playerId);
-	player->RemoveItem(mItemLoader, ItemKey(name, level));
+	player->RemoveItem(mItemLoader->GetItem(ItemKey(name, level)));
+
+	// [TODO] REMOVE SKILLS!! [TODO]
 
 	// Send to all client except to the one it came from.
 	RakNet::BitStream sendBitstream;
@@ -383,6 +463,47 @@ void Server::HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddres
 
 	((Player*)mWorld->GetObjectById(id))->SetGold(gold);
 }
+
+void Server::SendClientMessage(RakNet::BitStream& bitstream)
+{
+	// Send it to all other clients.
+	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+}
+
+void Server::HandleChatMessage(RakNet::BitStream& bitstream)
+{
+	// CVAR command?
+	char from[32];
+	char message[256];
+
+	bitstream.Read(from);
+	bitstream.Read(message);
+
+	string msg = string(message).substr(0, string(message).size() - 2);
+	vector<string> elems = SplitString(msg, ' ');
+	if(IsHost(from) && IsCvarCommand(elems[0]))
+	{
+		if(elems[0] == Cvars::RESTART_ROUND)
+			mRoundHandler->StartRound();
+
+		if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
+		{
+			int value = atoi(elems[1].c_str());
+			mCvars.SetCvarValue(elems[0], value);
+
+			// Send cvar change message.
+			RakNet::BitStream sendBitstream;
+			sendBitstream.Write((unsigned char)NMSG_CVAR_CHANGE);
+			sendBitstream.Write(elems[0].c_str());
+			sendBitstream.Write(value);
+			SendClientMessage(sendBitstream);
+		}
+	}
+
+	// Send the message to all clients.
+	SendClientMessage(bitstream);
+}
+
 
 void Server::BroadcastWorld()
 {
@@ -462,11 +583,6 @@ vector<string> Server::GetConnectedClients()
 	return clients;
 }
 
-void Server::SendClientMessage(RakNet::BitStream& bitstream)
-{
-	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
-}
-
 RakNet::RakPeerInterface* Server::GetRaknetPeer()
 {
 	return mRaknetPeer;
@@ -477,3 +593,19 @@ GLib::World* Server::GetWorld()
 	return mWorld;
 }
 
+bool Server::IsHost(string name)
+{
+	return true;
+}
+
+bool Server::IsCvarCommand(string cmd)
+{
+	// [NOTE] RESTART_ROUND!!!
+	return (cmd == Cvars::RESTART_ROUND || cmd == Cvars::START_GOLD || cmd == Cvars::SHOP_TIME || cmd == Cvars::ROUND_TIME || cmd == Cvars::NUM_ROUNDS ||
+			cmd == Cvars::GOLD_PER_KILL || cmd == Cvars::GOLD_PER_WIN || cmd == Cvars::LAVA_DMG || cmd == Cvars::PROJECTILE_IMPULSE);
+}
+
+int	Server::GetCvarValue(string cvar)
+{
+	return mCvars.GetCvarValue(cvar);
+}

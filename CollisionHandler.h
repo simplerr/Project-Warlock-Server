@@ -9,6 +9,6 @@ public:
 	CollisionHandler() {};
 	~CollisionHandler() {};
 
-	void HandleCollision(Player* pPlayer, Projectile* pProjetile);
+	void HandleCollision(Player* pPlayer, Projectile* pProjetile, float baseImpulse);
 private:
 };
