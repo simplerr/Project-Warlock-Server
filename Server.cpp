@@ -78,13 +78,20 @@ void Server::Update(GLib::Input* pInput, float dt)
 	if(mDamageCounter > 0.1f)
 	{
 		for(int i = 0; i < mPlayerList.size(); i++) {
+			if(mPlayerList[i]->GetEliminated())
+				continue;
+
 			XMFLOAT3 pos = mPlayerList[i]->GetPosition();
 			float distFromCenter = sqrt(pos.x * pos.x + pos.z * pos.z);
 
 			// Arena is 60 units in radius.
-			if(distFromCenter > 60.0f)
+			if(distFromCenter > 60.0f) {
 				mPlayerList[i]->SetHealth(mPlayerList[i]->GetHealth() - mCvars.GetCvarValue(Cvars::LAVA_DMG));
 
+				// Died?
+				if(mPlayerList[i]->GetHealth() <= 0) 
+					PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
+			}
 		}
 		mDamageCounter = 0.0f;
 	}
@@ -96,6 +103,10 @@ void Server::Update(GLib::Input* pInput, float dt)
 		string winner;
 		if(mRoundHandler->HasRoundEnded(winner))
 		{
+			// Add gold to the winner.
+			Player* winningPlayer = (Player*)mWorld->GetObjectByName(winner);
+			winningPlayer->SetGold(winningPlayer->GetGold() + GetCvarValue(Cvars::GOLD_PER_WIN));
+
 			// Send round ended message.
 			RakNet::BitStream bitstream;
 			bitstream.Write((unsigned char)NMSG_ROUND_ENDED);
@@ -126,6 +137,20 @@ void Server::Draw(GLib::Graphics* pGraphics)
 	pGraphics->DrawText(buffer, 10, 40, 14);
 
 	DrawScores(pGraphics);
+}
+
+void Server::PlayerEliminated(Player* pKilled, Player* pEliminator)
+{
+	// Add gold to the killer. 
+	if(pEliminator != nullptr)
+		pEliminator->SetGold(pEliminator->GetGold() + GetCvarValue(Cvars::GOLD_PER_KILL));
+
+	// Tell the clients about the kill.
+	RakNet::BitStream bitstream;
+	bitstream.Write((unsigned char)NMSG_PLAYER_ELIMINATED);
+	bitstream.Write(pKilled->GetName().c_str());
+	bitstream.Write(pEliminator == nullptr ? "himself" : pEliminator->GetName().c_str());
+	SendClientMessage(bitstream);
 }
 
 void Server::DrawScores(GLib::Graphics* pGraphics)
@@ -180,7 +205,7 @@ void Server::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pObject
 		{
 			// Checks what skill the projectile is and uses the XML data to determine the skill attributes
 			// depending on the skill level.
-			mCollisionHandler->HandleCollision(player, projectile, mCvars.GetCvarValue(Cvars::PROJECTILE_IMPULSE));
+			mCollisionHandler->HandleCollision(player, projectile, this, mItemLoader, mCvars.GetCvarValue(Cvars::PROJECTILE_IMPULSE) / 10.0f);
 
 			// Let the clients now about the changes immediately.
 			BroadcastWorld();
@@ -347,6 +372,7 @@ void Server::HandleConnectionData(RakNet::BitStream& bitstream, RakNet::SystemAd
 	player->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
 	player->SetSystemAdress(adress);
 	player->SetVelocity(XMFLOAT3(0, 0, -0.3f));
+	player->SetGold(mCvars.GetCvarValue(Cvars::START_GOLD));
 	mWorld->AddObject(player);
 
 	OutputDebugString(string(name + " has connected!\n").c_str());
@@ -472,6 +498,9 @@ void Server::SendClientMessage(RakNet::BitStream& bitstream)
 
 void Server::HandleChatMessage(RakNet::BitStream& bitstream)
 {
+	// Send the message to all clients.
+	SendClientMessage(bitstream);
+
 	// CVAR command?
 	char from[32];
 	char message[256];
@@ -485,8 +514,17 @@ void Server::HandleChatMessage(RakNet::BitStream& bitstream)
 	{
 		if(elems[0] == Cvars::RESTART_ROUND)
 			mRoundHandler->StartRound();
+		else if(elems[0] == Cvars::GIVE_GOLD && elems.size() == 3) 
+		{
+			Player* target = (Player*)mWorld->GetObjectByName(elems[1]);
+			if(target != nullptr && elems[2].find_first_not_of("0123456789") == std::string::npos) {
+				int gold = atoi(elems[2].c_str());
+				target->SetGold(target->GetGold() + gold);
 
-		if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
+				AddClientChatText("The host gave " + elems[2] + " gold to " + target->GetName() + "\n", RGB(0, 200, 0));
+			}
+		}
+		else if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
 		{
 			int value = atoi(elems[1].c_str());
 			mCvars.SetCvarValue(elems[0], value);
@@ -499,11 +537,17 @@ void Server::HandleChatMessage(RakNet::BitStream& bitstream)
 			SendClientMessage(sendBitstream);
 		}
 	}
-
-	// Send the message to all clients.
-	SendClientMessage(bitstream);
 }
 
+void Server::AddClientChatText(string text, COLORREF color)
+{
+	// Send cvar change message.
+	RakNet::BitStream bitstream;
+	bitstream.Write((unsigned char)NMSG_ADD_CHAT_TEXT);
+	bitstream.Write(text.c_str());
+	bitstream.Write(color);
+	SendClientMessage(bitstream);
+}
 
 void Server::BroadcastWorld()
 {
@@ -601,7 +645,7 @@ bool Server::IsHost(string name)
 bool Server::IsCvarCommand(string cmd)
 {
 	// [NOTE] RESTART_ROUND!!!
-	return (cmd == Cvars::RESTART_ROUND || cmd == Cvars::START_GOLD || cmd == Cvars::SHOP_TIME || cmd == Cvars::ROUND_TIME || cmd == Cvars::NUM_ROUNDS ||
+	return (cmd == Cvars::GIVE_GOLD || cmd == Cvars::RESTART_ROUND || cmd == Cvars::START_GOLD || cmd == Cvars::SHOP_TIME || cmd == Cvars::ROUND_TIME || cmd == Cvars::NUM_ROUNDS ||
 			cmd == Cvars::GOLD_PER_KILL || cmd == Cvars::GOLD_PER_WIN || cmd == Cvars::LAVA_DMG || cmd == Cvars::PROJECTILE_IMPULSE);
 }
 

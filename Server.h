@@ -39,7 +39,10 @@ public:
 	void OnObjectRemoved(GLib::Object3D* pObject);
 	void OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pObjectB);
 
+	void PlayerEliminated(Player* pPlayer, Player* pEliminator);
+
 	void SendClientMessage(RakNet::BitStream& bitstream);
+	void AddClientChatText(string text, COLORREF color);
 	void BroadcastWorld();
 
 	RakNet::RakPeerInterface*	GetRaknetPeer();

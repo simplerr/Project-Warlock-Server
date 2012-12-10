@@ -2,17 +2,28 @@
 #include "Player.h"
 #include "Projectile.h"
 #include "Skills.h"
+#include "World.h"
+#include "Server.h"
+#include "ItemLoaderXML.h"
 
-void CollisionHandler::HandleCollision(Player* pPlayer, Projectile* pProjetile, float baseImpulse)
+void CollisionHandler::HandleCollision(Player* pPlayer, Projectile* pProjectile, Server* pServer, ItemLoaderXML* pItemLoader, float baseImpulse)
 {
-	if(pProjetile->GetSkillType() == SKILL_FIREBALL)
+	if(pProjectile->GetSkillType() == SKILL_FIREBALL)
 	{
 		// Add a "impulse" to the player.
-		XMFLOAT3 dir = pProjetile->GetDirection();
+		XMFLOAT3 dir = pProjectile->GetDirection();
 		float impulse = baseImpulse;
 		pPlayer->SetVelocity(dir * impulse);
 
+		// Get item data.
+		Item* item = pItemLoader->GetItem(ItemKey(pProjectile->GetSkillType(), pProjectile->GetSkillLevel()));
+
 		// Damage the player.
-		pPlayer->SetHealth(pPlayer->GetHealth() - 30.0f);
+		pPlayer->SetHealth(pPlayer->GetHealth() - item->GetAttributes().damage);
+		pPlayer->SetLastHitter((Player*)pProjectile->GetWorld()->GetObjectById(pProjectile->GetOwner()));
+
+		// Dead? [NOTE] A bit of a hack.
+		if(pPlayer->GetHealth() <= 0) 
+			pServer->PlayerEliminated(pPlayer, (Player*)pProjectile->GetWorld()->GetObjectById(pProjectile->GetOwner()));
 	}
 }
