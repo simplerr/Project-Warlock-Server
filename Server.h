@@ -16,6 +16,7 @@ namespace GLib {
 }
 
 class ServerSkillInterpreter;
+class ServerMessageHandler;
 class CollisionHandler;
 class RoundHandler;
 class Player;
@@ -41,33 +42,22 @@ public:
 
 	void PlayerEliminated(Player* pPlayer, Player* pEliminator);
 
-	void SendClientMessage(RakNet::BitStream& bitstream);
+	void SendClientMessage(RakNet::BitStream& bitstream, bool broadcast = true, RakNet::SystemAddress adress = RakNet::UNASSIGNED_SYSTEM_ADDRESS);
 	void AddClientChatText(string text, COLORREF color);
 	void BroadcastWorld();
 
 	RakNet::RakPeerInterface*	GetRaknetPeer();
 	vector<string>				GetConnectedClients();
 	GLib::World*				GetWorld();
+	RoundHandler*				GetRoundHandler();
+	ServerSkillInterpreter*		GetSkillInterpreter();
+	ItemLoaderXML*				GetItemLoader();
 	int							GetCvarValue(string cvar);
 
 	void SetGameSate(GameState state);
-
-	//
-	// Handle packet functions.
-	//
-	void HandleNewConnection(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleConnectionLost(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleConnectionData(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleCvarListRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleItemAdded(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
-	void HandleTargetAdded(RakNet::BitStream& bitstream);
-	void HandleSkillCasted(RakNet::BitStream& bitstream);
-	void HandleChatMessage(RakNet::BitStream& bitstream);
-
 	void DrawScores(GLib::Graphics* pGraphics);
+	void SetScore(string name, int score);
+	void SetCvarValue(string cvar, int value);
 
 	bool IsHost(string name);
 	bool IsCvarCommand(string cmd);
@@ -75,7 +65,9 @@ private:
 	RakNet::RakPeerInterface*	mRaknetPeer;
 	GLib::World*				mWorld;
 	ServerSkillInterpreter*		mSkillInterpreter;
+	ServerMessageHandler*		mMessageHandler;
 	CollisionHandler*			mCollisionHandler;
+	RoundHandler*				mRoundHandler;
 	vector<Player*>				mPlayerList;
 	Player*						mTestDoll;
 	ItemLoaderXML*				mItemLoader;
@@ -83,7 +75,6 @@ private:
 	float						mTickRate;
 	float						mTickCounter;
 	float						mDamageCounter;
-
-	RoundHandler*				mRoundHandler;
+	
 	map<string, int>			mScoreMap;
 };
