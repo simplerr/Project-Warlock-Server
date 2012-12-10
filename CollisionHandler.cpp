@@ -5,8 +5,9 @@
 #include "World.h"
 #include "Server.h"
 #include "ItemLoaderXML.h"
+#include "ServerArena.h"
 
-void CollisionHandler::HandleCollision(Player* pPlayer, Projectile* pProjectile, Server* pServer, ItemLoaderXML* pItemLoader, float baseImpulse)
+void CollisionHandler::HandleCollision(Player* pPlayer, Projectile* pProjectile, ServerArena* pArena, ItemLoaderXML* pItemLoader, float baseImpulse)
 {
 	if(pProjectile->GetSkillType() == SKILL_FIREBALL)
 	{
@@ -24,6 +25,6 @@ void CollisionHandler::HandleCollision(Player* pPlayer, Projectile* pProjectile,
 
 		// Dead? [NOTE] A bit of a hack.
 		if(pPlayer->GetHealth() <= 0) 
-			pServer->PlayerEliminated(pPlayer, (Player*)pProjectile->GetWorld()->GetObjectById(pProjectile->GetOwner()));
+			pArena->PlayerEliminated(pPlayer, (Player*)pProjectile->GetWorld()->GetObjectById(pProjectile->GetOwner()));
 	}
 }

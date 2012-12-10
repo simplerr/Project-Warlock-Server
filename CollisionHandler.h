@@ -2,7 +2,7 @@
 
 class Player;
 class Projectile;
-class Server;
+class ServerArena;
 class ItemLoaderXML;
 
 class CollisionHandler
@@ -11,6 +11,6 @@ public:
 	CollisionHandler() {};
 	~CollisionHandler() {};
 
-	void HandleCollision(Player* pPlayer, Projectile* pProjetile, Server* pServer, ItemLoaderXML* pItemLoader, float baseImpulse);
+	void HandleCollision(Player* pPlayer, Projectile* pProjetile, ServerArena* pArena, ItemLoaderXML* pItemLoader, float baseImpulse);
 private:
 };
