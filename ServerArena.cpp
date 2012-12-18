@@ -214,8 +214,6 @@ void ServerArena::RemovePlayer(int id)
 			mPlayerList.erase(iter);
 			break;
 		}
-		else	
-			iter++;
 	}
 }
 

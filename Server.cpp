@@ -17,6 +17,7 @@
 #include "ItemLoaderXML.h"
 #include "RoundHandler.h"
 #include "ServerArena.h"
+#include "Database.h"
 
 Server::Server()
 {
@@ -34,6 +35,10 @@ Server::Server()
 	mRoundHandler = new RoundHandler();
 	mRoundHandler->SetServer(this);
 	mRoundHandler->SetPlayerList(mArena->GetPlayerListPointer());
+
+	mServerName = "Fun server [24/7]";
+	mDatabase = new Database();
+	mDatabase->AddServer(mServerName, mDatabase->GetPublicIp(), mDatabase->GetLocalIp());
 }
 
 Server::~Server()
@@ -43,6 +48,9 @@ Server::~Server()
 	delete mItemLoader;
 	delete mRoundHandler;
 	delete mArena;
+
+	mDatabase->RemoveServer("host");
+	delete mDatabase;
 
 	mRaknetPeer->Shutdown(300);
 	RakNet::RakPeerInterface::DestroyInstance(mRaknetPeer);
@@ -125,9 +133,11 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 	switch(packetID)
 	{
 		case ID_NEW_INCOMING_CONNECTION:
+			mDatabase->IncrementPlayerCounter(mServerName, 1);
 			mMessageHandler->HandleNewConnection(bitstream, pPacket->systemAddress);
 			break;
 		case ID_CONNECTION_LOST:
+			mDatabase->IncrementPlayerCounter(mServerName, -1);
 			mMessageHandler->HandleConnectionLost(bitstream, pPacket->systemAddress);
 			break;
 		case NMSG_CLIENT_CONNECTION_DATA:
@@ -246,7 +256,7 @@ void Server::SetCvarValue(string cvar, int value)
 	mCvars.SetCvarValue(cvar, value);
 }
 
-GameState Server::GetArenaState()
+CurrentState Server::GetArenaState()
 {
 	return mRoundHandler->GetArenaState().state;
 }

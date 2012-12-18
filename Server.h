@@ -3,6 +3,7 @@
 #include "d3dUtil.h"
 #include "States.h"
 #include "ServerCvars.h"
+#include "Database.h"
 #include <string>
 #include <map>
 
@@ -22,6 +23,7 @@ class RoundHandler;
 class Player;
 class ItemLoaderXML;
 class ServerArena;
+class Database;
 
 class Server
 {
@@ -44,10 +46,10 @@ public:
 	RoundHandler*				GetRoundHandler();
 	ServerSkillInterpreter*		GetSkillInterpreter();
 	ItemLoaderXML*				GetItemLoader();
-	GameState					GetArenaState();
+	CurrentState				GetArenaState();
 	int							GetCvarValue(string cvar);
 
-	void SetGameSate(GameState state);
+	void SetGameSate(CurrentState state);
 	void DrawScores(GLib::Graphics* pGraphics);
 	void SetScore(string name, int score);
 	void AddScore(string name, int score);
@@ -65,6 +67,9 @@ private:
 	ItemLoaderXML*				mItemLoader;
 	ServerArena*				mArena;
 	ServerCvars					mCvars;
-	
+
+	Database*					mDatabase;
+	string						mServerName;
+
 	map<string, int>			mScoreMap;
 };

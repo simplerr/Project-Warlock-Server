@@ -19,6 +19,7 @@ namespace GLib {
 
 class Arena;
 class Server;
+class Database;
 #pragma endregion
 
 class Game : public GLib::Runnable

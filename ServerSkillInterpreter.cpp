@@ -32,7 +32,7 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 		bitstream.Read(end);
 
 		XMStoreFloat3(&dir, XMVector3Normalize(XMLoadFloat3(&end) - XMLoadFloat3(&start)));
-		Projectile* projectile = new Projectile(owner, start, dir);
+		Projectile* projectile = new Projectile(owner, start, dir, "FireParticle.lua");
 		world->AddObject(projectile);
 		projectile->SetSkillLevel(skillLevel);
 		projectile->SetSkillType(skillType);

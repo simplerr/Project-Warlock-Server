@@ -13,6 +13,7 @@
 #include "CameraRTS.h"
 #include "Server.h"
 #include <fstream>
+#include "Database.h"
 
 using namespace GLib;
 
