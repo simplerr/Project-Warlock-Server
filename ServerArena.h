@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "BitStream.h"
+#include "BaseArena.h"
 using namespace std;
 
 namespace GLib {
@@ -16,7 +17,7 @@ class Server;
 class Player;
 class CollisionHandler;
 
-class ServerArena
+class ServerArena : public BaseArena
 {
 public:
 	ServerArena(Server* pServer);
@@ -25,6 +26,7 @@ public:
 	void Update(GLib::Input* pInput, float dt);
 	void Draw(GLib::Graphics* pGraphics);
 	void BroadcastWorld();
+	void StartGame();
 
 	void OnObjectAdded(GLib::Object3D* pObject);
 	void OnObjectRemoved(GLib::Object3D* pObject);
@@ -36,12 +38,12 @@ public:
 
 	GLib::World* GetWorld();
 	vector<Player*>* GetPlayerListPointer();
+	bool IsGameStarted();
 private:
 	Server*				mServer;
-	GLib::World*		mWorld;
-	vector<Player*>		mPlayerList;
 	CollisionHandler*	mCollisionHandler;
 	float				mTickRate;
 	float				mTickCounter;
 	float				mDamageCounter;
+	bool				mGameStarted;
 };

@@ -22,6 +22,7 @@ public:
 	void Update(GLib::Input* pInput, float dt);
 	void Draw(GLib::Graphics* pGraphics);
 
+	void StartLobbyCountdown();
 	void StartRound();
 	bool HasRoundEnded(string& winner);
 	void BroadcastStateTimer();
@@ -29,10 +30,16 @@ public:
 	void SetPlayerList(vector<Player*>* pPlayerList);
 	void SetServer(Server* pServer);
 	ArenaState GetArenaState();
+	int GetCompletedRounds();
+	void AddRoundCompleted();
 private:
 	vector<Player*>* mPlayerList;
 	ArenaState		 mArenaState;
 	Server*			 mServer;
 	bool			 mRoundEnded;
 	float			 mEndCounter;
+	float			 mLobbyCountdown;
+	bool			 mLobbyCountdownActive;
+	int				 mCompletedRounds;
+	bool			 mGameOver;
 };

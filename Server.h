@@ -49,16 +49,19 @@ public:
 	CurrentState				GetArenaState();
 	int							GetCvarValue(string cvar);
 
+	void StartGame();
 	void SetGameSate(CurrentState state);
 	void DrawScores(GLib::Graphics* pGraphics);
 	void SetScore(string name, int score);
 	void AddScore(string name, int score);
+	void AddRoundCompleted();
 	void SetCvarValue(string cvar, int value);
 	string RemovePlayer(RakNet::SystemAddress adress);
 
 	bool IsHost(string name);
 	bool IsCvarCommand(string cmd);
 	bool IsRoundOver(string& winner);
+	bool IsGameOver();
 private:
 	RakNet::RakPeerInterface*	mRaknetPeer;
 	ServerSkillInterpreter*		mSkillInterpreter;
@@ -70,6 +73,7 @@ private:
 
 	Database*					mDatabase;
 	string						mServerName;
+	string						mHostName;
 
 	map<string, int>			mScoreMap;
 };

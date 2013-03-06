@@ -9,45 +9,47 @@
 #include "Player.h"
 #include "d3dUtil.h"
 #include "RoundHandler.h"
+#include "Camera.h"
 
 ServerArena::ServerArena(Server* pServer)
+	: BaseArena()
 {
 	mServer = pServer;
-
-	// Create the world.
-	mWorld = new GLib::World();
-	mWorld->Init(GLib::GetGraphics());
 
 	mWorld->AddObjectAddedListener(&ServerArena::OnObjectAdded, this);
 	mWorld->AddObjectRemovedListener(&ServerArena::OnObjectRemoved, this);
 	mWorld->AddObjectCollisionListener(&ServerArena::OnObjectCollision, this);
 
-	// Connect the graphics light list.
-	GLib::GetGraphics()->SetLightList(mWorld->GetLights());
-
 	mCollisionHandler = new CollisionHandler();
 
-	mTickRate = 1.0f / 100.0f;	// 100 ticks per second.
+	mTickRate = 1.0f / 60.0f;	// 100 ticks per second.
 	mTickCounter = 0.0f;
 	mDamageCounter = 0.0f;
+
+	mGameStarted = false;
 
 	/************************************************************************/
 	/* Add a test player.                                                   */
 	/************************************************************************/
-	Player* testDoll = new Player();
-	testDoll->SetPosition(XMFLOAT3(0, 0, 10));
-	testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
-	mWorld->AddObject(testDoll);
+	//Player* testDoll = new Player();
+	//testDoll->SetPosition(XMFLOAT3(0, 0, 10));
+	//testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
+	//mWorld->AddObject(testDoll);
+
+	GLib::GetGraphics()->GetCamera()->SetPosition(XMFLOAT3(0, 150, 30));
+	GLib::GetGraphics()->GetCamera()->SetTarget(XMFLOAT3(0, 0, 0));
 }
 
 ServerArena::~ServerArena()
 {
-	delete mWorld;
 	delete mCollisionHandler;
 }
 
 void ServerArena::Update(GLib::Input* pInput, float dt)
 {
+	if(!IsGameStarted())
+		return;
+
 	mWorld->Update(dt);
 
 	// Deal damage to players outside the arena.
@@ -63,10 +65,10 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 
 			// Arena is 60 units in radius.
 			if(distFromCenter > 60.0f) {
-				mPlayerList[i]->SetHealth(mPlayerList[i]->GetHealth() - mServer->GetCvarValue(Cvars::LAVA_DMG));
+				mPlayerList[i]->TakeDamage(mServer->GetCvarValue(Cvars::LAVA_DMG));
 
 				// Died?
-				if(mPlayerList[i]->GetHealth() <= 0) 
+				if(mPlayerList[i]->GetCurrentHealth() <= 0) 
 					PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
 			}
 		}
@@ -80,13 +82,18 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		string winner;
 		if(mServer->IsRoundOver(winner))
 		{
+			mServer->AddRoundCompleted();
+
 			// Add gold to the winner.
 			Player* winningPlayer = (Player*)mWorld->GetObjectByName(winner);
 			winningPlayer->SetGold(winningPlayer->GetGold() + mServer->GetCvarValue(Cvars::GOLD_PER_WIN));
 
-			// Send round ended message.
 			RakNet::BitStream bitstream;
-			bitstream.Write((unsigned char)NMSG_ROUND_ENDED);
+			if(mServer->IsGameOver())
+				bitstream.Write((unsigned char)NMSG_GAME_OVER);
+			else 
+				bitstream.Write((unsigned char)NMSG_ROUND_ENDED);
+
 			bitstream.Write(winner.c_str());
 			mServer->SendClientMessage(bitstream);
 
@@ -102,7 +109,15 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 
 void ServerArena::Draw(GLib::Graphics* pGraphics)
 {
-	mWorld->Draw(pGraphics);
+	if(IsGameStarted())
+		mWorld->Draw(pGraphics);
+	else
+		pGraphics->DrawText("Players in lobby", 10, 200, 20);
+}
+
+void ServerArena::StartGame()
+{
+	mGameStarted = true;
 }
 
 void ServerArena::BroadcastWorld()
@@ -125,7 +140,7 @@ void ServerArena::BroadcastWorld()
 		if(object->GetType() == GLib::PLAYER)
 		{
 			Player* player = (Player*)object;
-			bitstream.Write(player->GetHealth());
+			bitstream.Write(player->GetCurrentHealth());
 			bitstream.Write(player->GetGold());
 		}
 
@@ -172,7 +187,12 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 		{
 			// Checks what skill the projectile is and uses the XML data to determine the skill attributes
 			// depending on the skill level.
-			mCollisionHandler->HandleCollision(player, projectile, this, mServer->GetItemLoader(), mServer->GetCvarValue(Cvars::PROJECTILE_IMPULSE) / 10.0f);
+			projectile->HandlePlayerCollision(player, this, mServer->GetItemLoader());
+
+			// Add status effect if there is any.
+			StatusEffect* statusEffect = projectile->GetStatusEffect();
+			if(statusEffect != nullptr)
+				player->AddStatusEffect(statusEffect);
 
 			// Let the clients now about the changes immediately.
 			BroadcastWorld();
@@ -241,4 +261,9 @@ GLib::World* ServerArena::GetWorld()
 vector<Player*>* ServerArena::GetPlayerListPointer()
 {
 	return &mPlayerList;
+}
+
+bool ServerArena::IsGameStarted()
+{
+	return mGameStarted;
 }

@@ -1,5 +1,4 @@
 #include <time.h>
-#include "Utils.h"
 #include "ServerMessageHandler.h"
 #include "CollisionHandler.h"
 #include "Server.h"
@@ -18,6 +17,8 @@
 #include "RoundHandler.h"
 #include "ServerArena.h"
 #include "Database.h"
+#include "Config.h"
+#include "ServerCvars.h"
 
 Server::Server()
 {
@@ -29,16 +30,25 @@ Server::Server()
 	mArena = new ServerArena(this);
 
 	mSkillInterpreter = new ServerSkillInterpreter();
-	mItemLoader = new ItemLoaderXML("F:\\Users\\Axel\\Documents\\Visual Studio 11\\Projects\\Project Warlock\\Project Warlock\\items.xml");	// [NOTE]!
+	mItemLoader = new ItemLoaderXML("items.xml");	// [NOTE]!
 	mMessageHandler = new ServerMessageHandler(this);
 
 	mRoundHandler = new RoundHandler();
 	mRoundHandler->SetServer(this);
 	mRoundHandler->SetPlayerList(mArena->GetPlayerListPointer());
 
-	mServerName = "Fun server [24/7]";
+	// Load the server and nickname from config.txt.
+	Config config("config.txt");
+	mServerName =  config.serverName;
+	mHostName = config.nickName;
+
 	mDatabase = new Database();
-	mDatabase->AddServer(mServerName, mDatabase->GetPublicIp(), mDatabase->GetLocalIp());
+	mDatabase->AddServer(mHostName, mServerName, mDatabase->GetPublicIp(), mDatabase->GetLocalIp());
+
+	// Temp
+	//mRoundHandler->StartLobbyCountdown();
+
+	mCvars.LoadFromFile("cvars.cfg");
 }
 
 Server::~Server()
@@ -49,7 +59,7 @@ Server::~Server()
 	delete mRoundHandler;
 	delete mArena;
 
-	mDatabase->RemoveServer("host");
+	mDatabase->RemoveServer("simpler");
 	delete mDatabase;
 
 	mRaknetPeer->Shutdown(300);
@@ -71,10 +81,6 @@ void Server::Draw(GLib::Graphics* pGraphics)
 	mRoundHandler->Draw(pGraphics);
 	mArena->Draw(pGraphics);
 
-	char buffer[244];
-	sprintf(buffer, "Timer: %.2f", mRoundHandler->GetArenaState().elapsed);
-	pGraphics->DrawText(buffer, 10, 40, 14);
-
 	DrawScores(pGraphics);
 }
 
@@ -84,9 +90,19 @@ void Server::SendClientMessage(RakNet::BitStream& bitstream, bool broadcast, Rak
 	mRaknetPeer->Send(&bitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, adress, broadcast);
 }
 
+void Server::StartGame()
+{
+	mRoundHandler->StartRound();
+
+	mArena->StartGame();
+	RakNet::BitStream bitstream;
+	bitstream.Write((unsigned char)NMSG_GAME_STARTED);
+	SendClientMessage(bitstream);
+}
+
 void Server::DrawScores(GLib::Graphics* pGraphics)
 {
-	string scoreList;
+	string scoreList = "Scores:\n";
 	for(auto iter = mScoreMap.begin(); iter != mScoreMap.end(); iter++)
 	{
 		char score[10];
@@ -94,7 +110,7 @@ void Server::DrawScores(GLib::Graphics* pGraphics)
 		scoreList += (*iter).first + ": " + score + "\n";
 	}
 
-	pGraphics->DrawText(scoreList, 10, 100, 14);
+	pGraphics->DrawText(scoreList, 10, 100, 20);
 }
 
 bool Server::StartServer()
@@ -166,6 +182,9 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 			break;
 		case NMSG_REQUEST_CVAR_LIST:
 			mMessageHandler->HandleCvarListRequest(bitstream, pPacket->systemAddress);
+			break;
+		case NMSG_START_COUNTDOWN:
+			mRoundHandler->StartLobbyCountdown();
 			break;
 	}
 
@@ -264,4 +283,17 @@ CurrentState Server::GetArenaState()
 bool Server::IsRoundOver(string& winner)
 {
 	return mRoundHandler->HasRoundEnded(winner);
+}
+
+bool Server::IsGameOver()
+{
+	if(mRoundHandler->GetCompletedRounds() >= mCvars.GetCvarValue(Cvars::NUM_ROUNDS))
+		return true;
+	else
+		return false;
+}
+
+void Server::AddRoundCompleted()
+{
+	mRoundHandler->AddRoundCompleted();
 }

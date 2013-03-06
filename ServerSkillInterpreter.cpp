@@ -1,9 +1,12 @@
 #include "ServerSkillInterpreter.h"
 #include "Server.h"
 #include "World.h"
-#include "Projectile.h"
 #include "Skills.h"
 #include "Items.h"
+#include "FrostProjectile.h"
+#include "FireProjectile.h"
+#include "MeteorProjectile.h"
+#include "HookProjectile.h"
 
 ServerSkillInterpreter::ServerSkillInterpreter()
 {
@@ -19,35 +22,57 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 {
 	GLib::World* world = pServer->GetWorld();
 
-	if(id == NMSG_ADD_FIREBALL)
+	XMFLOAT3 start, end, dir;
+	int owner, skillLevel;
+	ItemName skillType;
+
+	bitstream.Read(owner);
+	bitstream.Read(skillType);
+	bitstream.Read(skillLevel);
+	bitstream.Read(start);
+	bitstream.Read(end);
+
+	XMStoreFloat3(&dir, XMVector3Normalize(XMLoadFloat3(&end) - XMLoadFloat3(&start)));
+
+	Projectile* projectile = nullptr;
+
+	if(id == SKILL_FIREBALL)
+		projectile = new FireProjectile(owner, start, dir);
+	else if(id == SKILL_FROSTNOVA)
+		projectile = new FrostProjectile(owner, start);
+	else if(id == SKILL_HOOK)
+		projectile = new HookProjectile(owner, start, dir);
+	else if(id == SKILL_TELEPORT) 
 	{
-		XMFLOAT3 start, end, dir;
-		int owner, skillLevel;
-		ItemName skillType;
+		// This is really ugly, should be handled by Teleport itself...
+		Teleport teleport;
+		GLib::Object3D* player = world->GetObjectById(owner);
+		teleport.Cast(world, (Player*)player, start, end);
+	}
+	else if(id == SKILL_METEOR)
+	{
+		projectile = new MeteorProjectile(owner, end);
+	}
 
-		bitstream.Read(owner);
-		bitstream.Read(skillType);
-		bitstream.Read(skillLevel);
-		bitstream.Read(start);
-		bitstream.Read(end);
+	RakNet::BitStream sendBitstream;
+	sendBitstream.Write((unsigned char)NMSG_SKILL_CAST);
+	sendBitstream.Write((unsigned char)id);
+	sendBitstream.Write(owner);
+	sendBitstream.Write(skillType);
+	sendBitstream.Write(skillLevel);
+	sendBitstream.Write(start);
+	sendBitstream.Write(end);
 
-		XMStoreFloat3(&dir, XMVector3Normalize(XMLoadFloat3(&end) - XMLoadFloat3(&start)));
-		Projectile* projectile = new Projectile(owner, start, dir, "FireParticle.lua");
+	if(id == SKILL_FIREBALL || id == SKILL_FROSTNOVA || id == SKILL_METEOR || id == SKILL_HOOK)
+	{
 		world->AddObject(projectile);
 		projectile->SetSkillLevel(skillLevel);
 		projectile->SetSkillType(skillType);
 
-		// Send it to all the clients.
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_SKILL_CAST);
-		bitstream.Write((unsigned char)NMSG_ADD_FIREBALL);
-		bitstream.Write(owner);
-		bitstream.Write(projectile->GetId());
-		bitstream.Write(skillType);
-		bitstream.Write(skillLevel);
-		bitstream.Write(start);
-		bitstream.Write(end);
-
-		pServer->SendClientMessage(bitstream);
+		sendBitstream.Write(projectile->GetId());
 	}
+	
+
+	// Send it to all the clients.
+	pServer->SendClientMessage(sendBitstream);
 }

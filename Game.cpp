@@ -51,14 +51,14 @@ void Game::Init()
 	// Important to run Systems Init() function.
 	Runnable::Init();
 
-	// Create the peer.
-	mPeer = new Server();
-	mPeer->StartServer();
-
 	// Add a camera.
 	GLib::CameraRTS* camera = new GLib::CameraRTS();
 	GetGraphics()->SetCamera(camera);
 
+	// Create the peer.
+	mPeer = new Server();
+	mPeer->StartServer();
+	
 	// Set the fog color.
 	GetGraphics()->SetFogColor(XMFLOAT4(0.4f, 0.4f, 0.4f, 1.0f));
 }

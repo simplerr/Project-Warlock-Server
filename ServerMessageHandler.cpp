@@ -1,5 +1,4 @@
 #include "ServerMessageHandler.h"
-#include "Utils.h"
 #include "ServerSkillInterpreter.h"
 #include "Server.h"
 #include "World.h"
@@ -114,7 +113,7 @@ void ServerMessageHandler::HandleConnectionData(RakNet::BitStream& bitstream, Ra
 	mServer->SendClientMessage(sendBitstream);
 
 	// [NOTE][TEMP] Start the round.
-	mServer->GetRoundHandler()->StartRound();
+	//mServer->GetRoundHandler()->StartRound();
 }
 
 void ServerMessageHandler::HandleNamesRequest(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
@@ -227,7 +226,7 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream)
 	bitstream.Read(message);
 
 	string msg = string(message).substr(0, string(message).size() - 2);
-	vector<string> elems = SplitString(msg, ' ');
+	vector<string> elems = GLib::SplitString(msg, ' ');
 	if(mServer->IsHost(from) && mServer->IsCvarCommand(elems[0]))
 	{
 		if(elems[0] == Cvars::RESTART_ROUND)
