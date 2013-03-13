@@ -27,11 +27,11 @@ Server::Server()
 	// Create the RakNet peer
 	mRaknetPeer = RakNet::RakPeerInterface::GetInstance();
 
-	mArena = new ServerArena(this);
-
 	mSkillInterpreter = new ServerSkillInterpreter();
 	mItemLoader = new ItemLoaderXML("items.xml");	// [NOTE]!
 	mMessageHandler = new ServerMessageHandler(this);
+
+	mArena = new ServerArena(this);
 
 	mRoundHandler = new RoundHandler();
 	mRoundHandler->SetServer(this);
@@ -93,8 +93,8 @@ void Server::SendClientMessage(RakNet::BitStream& bitstream, bool broadcast, Rak
 void Server::StartGame()
 {
 	mRoundHandler->StartRound();
-
 	mArena->StartGame();
+
 	RakNet::BitStream bitstream;
 	bitstream.Write((unsigned char)NMSG_GAME_STARTED);
 	SendClientMessage(bitstream);
@@ -178,13 +178,16 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 			mMessageHandler->HandleGoldChange(bitstream, pPacket->systemAddress);
 			break;
 		case NMSG_CHAT_MESSAGE_SENT:
-			mMessageHandler->HandleChatMessage(bitstream);
+			mMessageHandler->HandleChatMessage(bitstream, pPacket->systemAddress);
 			break;
 		case NMSG_REQUEST_CVAR_LIST:
 			mMessageHandler->HandleCvarListRequest(bitstream, pPacket->systemAddress);
 			break;
 		case NMSG_START_COUNTDOWN:
 			mRoundHandler->StartLobbyCountdown();
+			break;
+		case NMSG_REQUEST_REMATCH:
+			mMessageHandler->HandleRematchRequest(bitstream);
 			break;
 	}
 
@@ -216,7 +219,7 @@ bool Server::IsCvarCommand(string cmd)
 {
 	// [NOTE] RESTART_ROUND!!!
 	return (cmd == Cvars::GIVE_GOLD || cmd == Cvars::RESTART_ROUND || cmd == Cvars::START_GOLD || cmd == Cvars::SHOP_TIME || cmd == Cvars::ROUND_TIME || cmd == Cvars::NUM_ROUNDS ||
-		cmd == Cvars::GOLD_PER_KILL || cmd == Cvars::GOLD_PER_WIN || cmd == Cvars::LAVA_DMG || cmd == Cvars::PROJECTILE_IMPULSE);
+		cmd == Cvars::GOLD_PER_KILL || cmd == Cvars::GOLD_PER_WIN || cmd == Cvars::LAVA_DMG || cmd == Cvars::PROJECTILE_IMPULSE || cmd == Cvars::LAVA_SLOW);
 }
 
 string Server::RemovePlayer(RakNet::SystemAddress adress)
@@ -244,7 +247,7 @@ bool Server::IsHost(string name)
 	return true;
 }
 
-int	Server::GetCvarValue(string cvar)
+float Server::GetCvarValue(string cvar)
 {
 	return mCvars.GetCvarValue(cvar);
 }
@@ -296,4 +299,30 @@ bool Server::IsGameOver()
 void Server::AddRoundCompleted()
 {
 	mRoundHandler->AddRoundCompleted();
+}
+
+ServerCvars	Server::GetCvars()
+{
+	return mCvars;
+}
+
+ServerArena* Server::GetArena()
+{
+	return mArena;
+}
+
+string Server::GetHostName()
+{
+	return mHostName;
+}
+
+void Server::ResetScores()
+{
+	for(auto iter = mScoreMap.begin(); iter != mScoreMap.end(); iter++)
+		(*iter).second = 0;
+}
+
+void Server::StripItems()
+{
+
 }

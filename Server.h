@@ -47,7 +47,10 @@ public:
 	ServerSkillInterpreter*		GetSkillInterpreter();
 	ItemLoaderXML*				GetItemLoader();
 	CurrentState				GetArenaState();
-	int							GetCvarValue(string cvar);
+	ServerCvars					GetCvars();
+	ServerArena*				GetArena();
+	string						GetHostName();
+	float						GetCvarValue(string cvar);
 
 	void StartGame();
 	void SetGameSate(CurrentState state);
@@ -56,7 +59,9 @@ public:
 	void AddScore(string name, int score);
 	void AddRoundCompleted();
 	void SetCvarValue(string cvar, int value);
+	void ResetScores();
 	string RemovePlayer(RakNet::SystemAddress adress);
+	void StripItems();
 
 	bool IsHost(string name);
 	bool IsCvarCommand(string cmd);

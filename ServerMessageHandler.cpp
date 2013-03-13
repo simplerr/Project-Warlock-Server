@@ -1,4 +1,5 @@
 #include "ServerMessageHandler.h"
+#include "ServerArena.h"
 #include "ServerSkillInterpreter.h"
 #include "Server.h"
 #include "World.h"
@@ -112,6 +113,14 @@ void ServerMessageHandler::HandleConnectionData(RakNet::BitStream& bitstream, Ra
 	// Send the message to all clients. ("PlayerName has connected to the game").
 	mServer->SendClientMessage(sendBitstream);
 
+	// Send cvar values.
+	auto cvarMap = mServer->GetCvars().CvarMap;
+	for(auto iter = cvarMap.begin(); iter != cvarMap.end(); iter++) {
+		string cvar = (*iter).first;
+		int value = (*iter).second;
+		SendCvarValue(adress, cvar, value, true);
+	}
+
 	// [NOTE][TEMP] Start the round.
 	//mServer->GetRoundHandler()->StartRound();
 }
@@ -213,7 +222,7 @@ void ServerMessageHandler::HandleGoldChange(RakNet::BitStream& bitstream, RakNet
 	((Player*)mServer->GetWorld()->GetObjectById(id))->SetGold(gold);
 }
 
-void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream)
+void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
 {
 	// Send the message to all clients.
 	mServer->SendClientMessage(bitstream);
@@ -244,14 +253,35 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream)
 		else if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
 		{
 			int value = atoi(elems[1].c_str());
-			mServer->SetCvarValue(elems[0], value);
 
 			// Send cvar change message.
-			RakNet::BitStream bitstream;
-			bitstream.Write((unsigned char)NMSG_CVAR_CHANGE);
-			bitstream.Write(elems[0].c_str());
-			bitstream.Write(value);
-			mServer->SendClientMessage(bitstream);
+			mServer->SetCvarValue(elems[0], value);
+			SendCvarValue(adress, elems[0], value, true);
 		}
 	}
+}
+
+void ServerMessageHandler::HandleRematchRequest(RakNet::BitStream& bitstream)
+{
+	// Remove scores and reset the round handler.
+	mServer->ResetScores();
+	mServer->GetRoundHandler()->StartRound();
+	mServer->GetRoundHandler()->Rematch();
+	mServer->GetArena()->StartGame();
+
+	// Inform all clients about the rematch.
+	RakNet::BitStream sendBitstream;
+	sendBitstream.Write((unsigned char)NMSG_PERFORM_REMATCH);
+	mServer->SendClientMessage(sendBitstream);
+}
+
+void ServerMessageHandler::SendCvarValue(RakNet::SystemAddress adress, string cvar, int value, bool show)
+{
+	// Send cvar change message.
+	RakNet::BitStream bitstream;
+	bitstream.Write((unsigned char)NMSG_CVAR_CHANGE);
+	bitstream.Write(cvar.c_str());
+	bitstream.Write(value);
+	bitstream.Write(show ? 1 : 0); // Show change in chat or not.
+	mServer->SendClientMessage(bitstream);
 }

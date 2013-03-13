@@ -14,11 +14,14 @@
 #include "Server.h"
 #include <fstream>
 #include "Database.h"
+#include "Sound.h"
 
 using namespace GLib;
 
 // Set global to NULL.
 GLib::Runnable* GLib::GlobalApp = nullptr;
+ServerCvars* gCvars = nullptr;
+Sound*	gSound = nullptr;
 
 //! The program starts here.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
@@ -39,11 +42,13 @@ Game::Game(HINSTANCE hInstance, string caption, int width, int height)
 {
 	// Cap the fps to 100.
 	//SetFpsCap(100.0f);
+	gCvars = new ServerCvars();
 }
 
 Game::~Game()
 {
 	delete mPeer;
+	delete gCvars;
 }
 
 void Game::Init()

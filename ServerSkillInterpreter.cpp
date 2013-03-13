@@ -7,6 +7,7 @@
 #include "FireProjectile.h"
 #include "MeteorProjectile.h"
 #include "HookProjectile.h"
+#include "Player.h"
 
 ServerSkillInterpreter::ServerSkillInterpreter()
 {
@@ -34,7 +35,14 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 
 	XMStoreFloat3(&dir, XMVector3Normalize(XMLoadFloat3(&end) - XMLoadFloat3(&start)));
 
+	Player* player = (Player*)world->GetObjectById(owner);
 	Projectile* projectile = nullptr;
+
+	// Set player rotation facing dir target.
+	player->SetRotation(XMFLOAT3(0, atan2f(-dir.x, -dir.z), 0));
+
+	// Set attack animation.
+	player->SetAnimation(5, 0.7f);
 
 	if(id == SKILL_FIREBALL)
 		projectile = new FireProjectile(owner, start, dir);
@@ -46,7 +54,6 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 	{
 		// This is really ugly, should be handled by Teleport itself...
 		Teleport teleport;
-		GLib::Object3D* player = world->GetObjectById(owner);
 		teleport.Cast(world, (Player*)player, start, end);
 	}
 	else if(id == SKILL_METEOR)

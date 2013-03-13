@@ -32,6 +32,7 @@ public:
 	ArenaState GetArenaState();
 	int GetCompletedRounds();
 	void AddRoundCompleted();
+	void Rematch();
 private:
 	vector<Player*>* mPlayerList;
 	ArenaState		 mArenaState;

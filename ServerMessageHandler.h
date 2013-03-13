@@ -1,5 +1,8 @@
 #pragma once
 #include "BitStream.h"
+#include <string>
+
+using namespace std;
 
 class Server;
 
@@ -22,7 +25,10 @@ public:
 	void HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
 	void HandleTargetAdded(RakNet::BitStream& bitstream);
 	void HandleSkillCasted(RakNet::BitStream& bitstream);
-	void HandleChatMessage(RakNet::BitStream& bitstream);
+	void HandleRematchRequest(RakNet::BitStream& bitstream);
+	void HandleChatMessage(RakNet::BitStream& bitstream, RakNet::SystemAddress adress);
+
+	void SendCvarValue(RakNet::SystemAddress adress, string cvar, int value, bool show);
 private:
 	Server* mServer;
 };

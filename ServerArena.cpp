@@ -10,6 +10,7 @@
 #include "d3dUtil.h"
 #include "RoundHandler.h"
 #include "Camera.h"
+#include "ItemLoaderXML.h"
 
 ServerArena::ServerArena(Server* pServer)
 	: BaseArena()
@@ -31,10 +32,11 @@ ServerArena::ServerArena(Server* pServer)
 	/************************************************************************/
 	/* Add a test player.                                                   */
 	/************************************************************************/
-	//Player* testDoll = new Player();
-	//testDoll->SetPosition(XMFLOAT3(0, 0, 10));
-	//testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
-	//mWorld->AddObject(testDoll);
+	Player* testDoll = new Player();
+	testDoll->SetPosition(XMFLOAT3(0, 0, 10));
+	testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
+	testDoll->AddItem(pServer->GetItemLoader(), ItemKey(KNOCKBACK_SHIELD, 3));
+	mWorld->AddObject(testDoll);
 
 	GLib::GetGraphics()->GetCamera()->SetPosition(XMFLOAT3(0, 150, 30));
 	GLib::GetGraphics()->GetCamera()->SetTarget(XMFLOAT3(0, 0, 0));
@@ -51,29 +53,42 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		return;
 
 	mWorld->Update(dt);
-
-	// Deal damage to players outside the arena.
+	
 	mDamageCounter += dt;
-	if(mDamageCounter > 0.1f)
-	{
-		for(int i = 0; i < mPlayerList.size(); i++) {
-			if(mPlayerList[i]->GetEliminated())
-				continue;
 
+	for(int i = 0; i < mPlayerList.size(); i++) 
+	{
+		if(mPlayerList[i]->GetEliminated())
+			continue;
+
+		// Deal damage to players outside the arena.
+		if(mDamageCounter > 0.1f)
+		{
 			XMFLOAT3 pos = mPlayerList[i]->GetPosition();
 			float distFromCenter = sqrt(pos.x * pos.x + pos.z * pos.z);
 
 			// Arena is 60 units in radius.
 			if(distFromCenter > 60.0f) {
-				mPlayerList[i]->TakeDamage(mServer->GetCvarValue(Cvars::LAVA_DMG));
+				mPlayerList[i]->TakeDamage(mServer->GetCvarValue(Cvars::LAVA_DMG) * (1 - mPlayerList[i]->GetLavaImmunity()));
 
-				// Died?
-				if(mPlayerList[i]->GetCurrentHealth() <= 0) 
-					PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
+				// Set slow movement speed.
+				mPlayerList[i]->SetSlow(mServer->GetCvarValue(Cvars::LAVA_SLOW));
+			}
+			else {
+				// Restore movement speed.
+				mPlayerList[i]->SetSlow(0.0f);
 			}
 		}
-		mDamageCounter = 0.0f;
+		
+		// Player dead?
+		if(mPlayerList[i]->GetCurrentHealth() <= 0 && mPlayerList[i]->GetCurrentAnimation() != 7) {
+			mPlayerList[i]->SetDeathAnimation();
+			PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
+		}
 	}
+
+	if(mDamageCounter > 0.1f)
+		mDamageCounter = 0.0f;
 
 	// Broadcast the world at a fixed rate.
 	mTickCounter += dt;
@@ -128,6 +143,7 @@ void ServerArena::BroadcastWorld()
 	{
 		GLib::Object3D* object = (GLib::Object3D*)objects->operator[](i);
 		XMFLOAT3 pos = object->GetPosition();
+		XMFLOAT3 rotation = object->GetRotation();
 
 		RakNet::BitStream bitstream;
 		bitstream.Write((unsigned char)NMSG_WORLD_UPDATE);
@@ -136,10 +152,15 @@ void ServerArena::BroadcastWorld()
 		bitstream.Write(pos.x);
 		bitstream.Write(pos.y);
 		bitstream.Write(pos.z);
+		bitstream.Write(rotation.x);
+		bitstream.Write(rotation.y);
+		bitstream.Write(rotation.z);
 
 		if(object->GetType() == GLib::PLAYER)
 		{
 			Player* player = (Player*)object;
+			bitstream.Write(player->GetCurrentAnimation());
+			bitstream.Write(player->GetDeathTimer());
 			bitstream.Write(player->GetCurrentHealth());
 			bitstream.Write(player->GetGold());
 		}
@@ -183,7 +204,7 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 		if(projectile->GetOwner() == player->GetId())
 			return;
 
-		if(mServer->GetArenaState() != SHOPPING_STATE)
+		if(mServer->GetArenaState() != SHOPPING_STATE && !player->GetEliminated())
 		{
 			// Checks what skill the projectile is and uses the XML data to determine the skill attributes
 			// depending on the skill level.
@@ -193,6 +214,13 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 			StatusEffect* statusEffect = projectile->GetStatusEffect();
 			if(statusEffect != nullptr)
 				player->AddStatusEffect(statusEffect);
+
+			// Set hurt animation.
+			player->SetAnimation(6, 0.4f);
+
+			// Add lifesteal life.
+			Player* owner = (Player*)mWorld->GetObjectById(projectile->GetOwner());
+			owner->SetCurrentHealth(owner->GetCurrentHealth() + owner->GetLifeSteal());
 
 			// Let the clients now about the changes immediately.
 			BroadcastWorld();
