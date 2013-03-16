@@ -86,6 +86,11 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		
 		// Player dead?
 		if(mPlayerList[i]->GetCurrentHealth() <= 0 && mPlayerList[i]->GetCurrentAnimation() != 7) {
+			static int cc = 0;
+			cc++;
+			if(cc == 1)
+				int a = 1;
+
 			mPlayerList[i]->SetDeathAnimation();
 			PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
 		}
@@ -255,7 +260,8 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 				player->AddStatusEffect(statusEffect);
 
 			// Set hurt animation.
-			player->SetAnimation(6, 0.4f);
+			if(player->GetCurrentAnimation() != 7) // Death animation
+				player->SetAnimation(6, 0.4f);
 
 			// Add lifesteal life.
 			Player* owner = (Player*)mWorld->GetObjectById(projectile->GetOwner());
