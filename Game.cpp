@@ -58,6 +58,7 @@ void Game::Init()
 
 	// Add a camera.
 	GLib::CameraRTS* camera = new GLib::CameraRTS();
+	camera->SetLocked(true);
 	GetGraphics()->SetCamera(camera);
 
 	// Create the peer.
@@ -71,6 +72,7 @@ void Game::Init()
 void Game::Update(GLib::Input* pInput, float dt)
 {
 	mPeer->Update(pInput, dt);
+	GetGraphics()->Update(pInput, dt);
 }
 
 void Game::Draw(GLib::Graphics* pGraphics)

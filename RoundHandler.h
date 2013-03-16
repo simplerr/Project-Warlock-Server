@@ -20,6 +20,7 @@ public:
 	~RoundHandler();
 
 	void Update(GLib::Input* pInput, float dt);
+	void UpdateLobby(float dt);
 	void Draw(GLib::Graphics* pGraphics);
 
 	void StartLobbyCountdown();

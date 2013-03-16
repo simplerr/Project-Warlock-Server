@@ -58,7 +58,7 @@ public:
 	void SetScore(string name, int score);
 	void AddScore(string name, int score);
 	void AddRoundCompleted();
-	void SetCvarValue(string cvar, int value);
+	void SetCvarValue(string cvar, float value);
 	void ResetScores();
 	string RemovePlayer(RakNet::SystemAddress adress);
 	void StripItems();

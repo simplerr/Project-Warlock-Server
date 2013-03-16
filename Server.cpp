@@ -218,8 +218,13 @@ vector<string> Server::GetConnectedClients()
 bool Server::IsCvarCommand(string cmd)
 {
 	// [NOTE] RESTART_ROUND!!!
-	return (cmd == Cvars::GIVE_GOLD || cmd == Cvars::RESTART_ROUND || cmd == Cvars::START_GOLD || cmd == Cvars::SHOP_TIME || cmd == Cvars::ROUND_TIME || cmd == Cvars::NUM_ROUNDS ||
-		cmd == Cvars::GOLD_PER_KILL || cmd == Cvars::GOLD_PER_WIN || cmd == Cvars::LAVA_DMG || cmd == Cvars::PROJECTILE_IMPULSE || cmd == Cvars::LAVA_SLOW);
+	for(auto iter = mCvars.CvarMap.begin(); iter != mCvars.CvarMap.end(); iter++) 
+	{
+		if((*iter).first == cmd)
+			return true;
+	}
+
+	return (cmd == Cvars::GIVE_GOLD || cmd == Cvars::RESTART_ROUND);
 }
 
 string Server::RemovePlayer(RakNet::SystemAddress adress)
@@ -273,7 +278,7 @@ ItemLoaderXML* Server::GetItemLoader()
 	return mItemLoader;
 }
 
-void Server::SetCvarValue(string cvar, int value)
+void Server::SetCvarValue(string cvar, float value)
 {
 	mCvars.SetCvarValue(cvar, value);
 }

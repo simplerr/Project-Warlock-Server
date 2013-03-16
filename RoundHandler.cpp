@@ -43,6 +43,29 @@ void RoundHandler::Update(GLib::Input* pInput, float dt)
 		mRoundEnded = false;
 	}
 
+	UpdateLobby(dt);
+
+	// TESTING [NOTE]! !!!
+	if(mArenaState.state == SHOPPING_STATE && pInput->KeyPressed(VK_SPACE))
+	{
+		InitPlayingState(mArenaState, true);
+
+		RakNet::BitStream bitstream;
+		bitstream.Write((unsigned char)NMSG_CHANGETO_PLAYING);
+		mServer->SendClientMessage(bitstream);
+	}
+	else if(mArenaState.state == PLAYING_STATE && pInput->KeyPressed(VK_SPACE))
+	{
+		InitShoppingState(mArenaState, true);
+
+		RakNet::BitStream bitstream;
+		bitstream.Write((unsigned char)NMSG_CHANGETO_SHOPPING);
+		mServer->SendClientMessage(bitstream);
+	}
+}
+
+void RoundHandler::UpdateLobby(float dt)
+{
 	// Lobby countdown [HACK][TODO][NOTE].
 	static float lobbyCountDownDelta = 0;
 	if(mLobbyCountdownActive)
@@ -69,24 +92,6 @@ void RoundHandler::Update(GLib::Input* pInput, float dt)
 			mServer->StartGame();
 		}
 	}
-
-	// TESTING [NOTE]! !!!
-	if(mArenaState.state == SHOPPING_STATE && pInput->KeyPressed(VK_SPACE))
-	{
-		InitPlayingState(mArenaState, true);
-
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_CHANGETO_PLAYING);
-		mServer->SendClientMessage(bitstream);
-	}
-	else if(mArenaState.state == PLAYING_STATE && pInput->KeyPressed(VK_SPACE))
-	{
-		InitShoppingState(mArenaState, true);
-
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_CHANGETO_SHOPPING);
-		mServer->SendClientMessage(bitstream);
-	}
 }
 
 void RoundHandler::Draw(GLib::Graphics* pGraphics)
@@ -105,7 +110,7 @@ void RoundHandler::StartRound()
 {
 	for(int i = 0; i < mPlayerList->size(); i++)
 	{
-		mPlayerList->operator[](i)->SetPosition(XMFLOAT3(rand() % 20, 2, rand() % 20));
+		mPlayerList->operator[](i)->SetPosition(XMFLOAT3(rand() % 20, 0.0, rand() % 20));
 		mPlayerList->operator[](i)->SetEliminated(false);
 		mPlayerList->operator[](i)->Init();
 		mPlayerList->operator[](i)->RemoveStatusEffects();
@@ -118,6 +123,8 @@ void RoundHandler::StartRound()
 	bitstream.Write((unsigned char)NMSG_ROUND_START);
 	mServer->SendClientMessage(bitstream);
 	mRoundEnded = false;
+
+	mServer->GetArena()->StartRound();
 }
 bool RoundHandler::HasRoundEnded(string& winner)
 {
@@ -149,7 +156,7 @@ void RoundHandler::BroadcastStateTimer()
 		InitPlayingState(mArenaState, true);
 
 		for(int i = 0; i < mPlayerList->size(); i++)
-			mPlayerList->operator[](i)->SetPosition(XMFLOAT3(rand() % 50, 2, rand() % 50));
+			mPlayerList->operator[](i)->SetPosition(XMFLOAT3(rand() % 50, 0, rand() % 50));
 
 		// Broadcast world before sending NMSG_CHANGETO_PLAYING so player positions are updated (the camera uses the new positions).
 		mServer->GetArena()->BroadcastWorld();

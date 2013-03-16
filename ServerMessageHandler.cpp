@@ -158,6 +158,9 @@ void ServerMessageHandler::HandleCvarListRequest(RakNet::BitStream& bitstream, R
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::GOLD_PER_WIN));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::LAVA_DMG));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::PROJECTILE_IMPULSE));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::ARENA_RADIUS));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOOD_INTERVAL));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOD_SIZE));
 
 	mServer->SendClientMessage(sendBitstream, false, adress);
 }

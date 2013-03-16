@@ -11,6 +11,7 @@
 #include "RoundHandler.h"
 #include "Camera.h"
 #include "ItemLoaderXML.h"
+#include "Effects.h"
 
 ServerArena::ServerArena(Server* pServer)
 	: BaseArena()
@@ -26,6 +27,7 @@ ServerArena::ServerArena(Server* pServer)
 	mTickRate = 1.0f / 60.0f;	// 100 ticks per second.
 	mTickCounter = 0.0f;
 	mDamageCounter = 0.0f;
+	mFloodDelta = 0.0f;
 
 	mGameStarted = false;
 
@@ -40,6 +42,10 @@ ServerArena::ServerArena(Server* pServer)
 
 	GLib::GetGraphics()->GetCamera()->SetPosition(XMFLOAT3(0, 150, 30));
 	GLib::GetGraphics()->GetCamera()->SetTarget(XMFLOAT3(0, 0, 0));
+
+	GLib::Effects::TerrainFX->SetArenaRadius(60);
+
+	mArenaRadius = mServer->GetCvarValue(Cvars::ARENA_RADIUS);
 }
 
 ServerArena::~ServerArena()
@@ -51,8 +57,6 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 {
 	if(!IsGameStarted())
 		return;
-
-	mWorld->Update(dt);
 	
 	mDamageCounter += dt;
 
@@ -68,7 +72,7 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 			float distFromCenter = sqrt(pos.x * pos.x + pos.z * pos.z);
 
 			// Arena is 60 units in radius.
-			if(distFromCenter > 60.0f) {
+			if(distFromCenter > mArenaRadius) {
 				mPlayerList[i]->TakeDamage(mServer->GetCvarValue(Cvars::LAVA_DMG) * (1 - mPlayerList[i]->GetLavaImmunity()));
 
 				// Set slow movement speed.
@@ -86,6 +90,8 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 			PlayerEliminated(mPlayerList[i], mPlayerList[i]->GetLastHitter());
 		}
 	}
+
+	mWorld->Update(dt);
 
 	if(mDamageCounter > 0.1f)
 		mDamageCounter = 0.0f;
@@ -120,6 +126,32 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		mServer->GetRoundHandler()->BroadcastStateTimer();
 		mTickCounter = 0.0f;
 	}
+
+	// Update lava.
+	mFloodDelta += dt;
+
+	if(mFloodDelta >= mServer->GetCvarValue(Cvars::FLOOD_INTERVAL))
+	{
+		mArenaFloodStartRadius = mArenaRadius;
+		mFloodDelta = -5;
+
+		// Send NMSG_FLOOD_START message.
+		RakNet::BitStream bitstream;
+		bitstream.Write((unsigned char)NMSG_FLOOD_START);
+		mServer->SendClientMessage(bitstream);
+	}
+	else if(mFloodDelta < 0)
+	{
+		float floadSize = mServer->GetCvarValue(Cvars::FLOD_SIZE);
+		mArenaRadius = mArenaFloodStartRadius - floadSize * (1 - (-mFloodDelta / 5));
+		GLib::Effects::TerrainFX->SetArenaRadius(mArenaRadius);
+
+		// Send NMSG_ARENA_RADIUS message.
+		RakNet::BitStream bitstream;
+		bitstream.Write((unsigned char)NMSG_ARENA_RADIUS);
+		bitstream.Write(mArenaRadius);
+		mServer->SendClientMessage(bitstream);
+	}
 }
 
 void ServerArena::Draw(GLib::Graphics* pGraphics)
@@ -133,6 +165,13 @@ void ServerArena::Draw(GLib::Graphics* pGraphics)
 void ServerArena::StartGame()
 {
 	mGameStarted = true;
+}
+
+void ServerArena::StartRound()
+{
+	mArenaRadius = mServer->GetCvarValue(Cvars::ARENA_RADIUS);
+	GLib::Effects::TerrainFX->SetArenaRadius(mArenaRadius);
+	mFloodDelta = 0.0f;
 }
 
 void ServerArena::BroadcastWorld()
@@ -211,7 +250,7 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 			projectile->HandlePlayerCollision(player, this, mServer->GetItemLoader());
 
 			// Add status effect if there is any.
-			StatusEffect* statusEffect = projectile->GetStatusEffect();
+			StatusEffect* statusEffect = projectile->GetStatusEffect(mServer->GetItemLoader());
 			if(statusEffect != nullptr)
 				player->AddStatusEffect(statusEffect);
 

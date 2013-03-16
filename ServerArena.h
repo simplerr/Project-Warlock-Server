@@ -27,6 +27,7 @@ public:
 	void Draw(GLib::Graphics* pGraphics);
 	void BroadcastWorld();
 	void StartGame();
+	void StartRound();
 
 	void OnObjectAdded(GLib::Object3D* pObject);
 	void OnObjectRemoved(GLib::Object3D* pObject);
@@ -46,4 +47,7 @@ private:
 	float				mTickCounter;
 	float				mDamageCounter;
 	bool				mGameStarted;
+	float				mFloodDelta;
+	float				mArenaFloodStartRadius;
+	float				mArenaRadius;
 };
