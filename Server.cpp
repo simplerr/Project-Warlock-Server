@@ -49,6 +49,8 @@ Server::Server()
 	//mRoundHandler->StartLobbyCountdown();
 
 	mCvars.LoadFromFile("cvars.cfg");
+
+	mInLobby = true;
 }
 
 Server::~Server()
@@ -94,6 +96,7 @@ void Server::StartGame()
 {
 	mRoundHandler->StartRound();
 	mArena->StartGame();
+	mInLobby = false;
 
 	RakNet::BitStream bitstream;
 	bitstream.Write((unsigned char)NMSG_GAME_STARTED);
@@ -194,14 +197,14 @@ bool Server::HandlePacket(RakNet::Packet* pPacket)
 	return true;
 }
 
-void Server::AddClientChatText(string text, COLORREF color)
+void Server::AddClientChatText(string text, COLORREF color, bool broadcast, RakNet::SystemAddress adress)
 {
 	// Send cvar change message.
 	RakNet::BitStream bitstream;
 	bitstream.Write((unsigned char)NMSG_ADD_CHAT_TEXT);
 	bitstream.Write(text.c_str());
 	bitstream.Write(color);
-	SendClientMessage(bitstream);
+	SendClientMessage(bitstream, broadcast, adress);
 }
 
 vector<string> Server::GetConnectedClients()
@@ -330,4 +333,9 @@ void Server::ResetScores()
 void Server::StripItems()
 {
 
+}
+
+bool Server::IsInLobby()
+{
+	return mInLobby;
 }

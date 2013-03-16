@@ -44,24 +44,6 @@ void RoundHandler::Update(GLib::Input* pInput, float dt)
 	}
 
 	UpdateLobby(dt);
-
-	// TESTING [NOTE]! !!!
-	if(mArenaState.state == SHOPPING_STATE && pInput->KeyPressed(VK_SPACE))
-	{
-		InitPlayingState(mArenaState, true);
-
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_CHANGETO_PLAYING);
-		mServer->SendClientMessage(bitstream);
-	}
-	else if(mArenaState.state == PLAYING_STATE && pInput->KeyPressed(VK_SPACE))
-	{
-		InitShoppingState(mArenaState, true);
-
-		RakNet::BitStream bitstream;
-		bitstream.Write((unsigned char)NMSG_CHANGETO_SHOPPING);
-		mServer->SendClientMessage(bitstream);
-	}
 }
 
 void RoundHandler::UpdateLobby(float dt)

@@ -161,6 +161,7 @@ void ServerMessageHandler::HandleCvarListRequest(RakNet::BitStream& bitstream, R
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::ARENA_RADIUS));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOOD_INTERVAL));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOD_SIZE));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::CHEATS));
 
 	mServer->SendClientMessage(sendBitstream, false, adress);
 }
@@ -239,28 +240,53 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNe
 
 	string msg = string(message).substr(0, string(message).size() - 2);
 	vector<string> elems = GLib::SplitString(msg, ' ');
-	if(mServer->IsHost(from) && mServer->IsCvarCommand(elems[0]))
+	if(mServer->IsCvarCommand(elems[0]))
 	{
-		if(elems[0] == Cvars::RESTART_ROUND)
-			mServer->GetRoundHandler()->StartRound();
-		else if(elems[0] == Cvars::GIVE_GOLD && elems.size() == 3) // -gold playername amount
+		if(mServer->IsHost(from))
 		{
-			Player* target = (Player*)mServer->GetWorld()->GetObjectByName(elems[1]);
-			if(target != nullptr && elems[2].find_first_not_of("0123456789") == std::string::npos) {
-				int gold = atoi(elems[2].c_str());
-				target->SetGold(target->GetGold() + gold);
+			if(mServer->IsInLobby())
+			{
+				if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
+				{
+					int value = atoi(elems[1].c_str());
 
-				mServer->AddClientChatText("The host gave " + elems[2] + " gold to " + target->GetName() + "\n", RGB(0, 200, 0));
+					// Send cvar change message.
+					mServer->SetCvarValue(elems[0], value);
+					SendCvarValue(adress, elems[0], value, true);
+				}
+			}
+			else
+			{
+				if(elems[0] == Cvars::RESTART_ROUND)
+				{
+					if(mServer->GetCvarValue(Cvars::CHEATS) == 1)
+						mServer->GetRoundHandler()->StartRound();
+					else
+						mServer->AddClientChatText("Cheats are turned off (-cheats 0).\n", RGB(255, 0, 0), false, adress);
+				}
+				else if(elems[0] == Cvars::GIVE_GOLD && elems.size() == 3) // -gold playername amount
+				{
+					if(mServer->GetCvarValue(Cvars::CHEATS) == 1)
+					{
+						Player* target = (Player*)mServer->GetWorld()->GetObjectByName(elems[1]);
+						if(target != nullptr && elems[2].find_first_not_of("0123456789") == std::string::npos) {
+							int gold = atoi(elems[2].c_str());
+							target->SetGold(target->GetGold() + gold);
+
+							mServer->AddClientChatText("The host gave " + elems[2] + " gold to " + target->GetName() + "\n", RGB(0, 200, 0));
+						}
+					}
+					else
+						mServer->AddClientChatText("Cheats are turned off (-cheats 0).\n", RGB(255, 0, 0), false, adress);
+				}
 			}
 		}
-		else if(elems.size() == 2 && !elems[1].empty() && elems[1].find_first_not_of("0123456789") == std::string::npos)
-		{
-			int value = atoi(elems[1].c_str());
-
-			// Send cvar change message.
-			mServer->SetCvarValue(elems[0], value);
-			SendCvarValue(adress, elems[0], value, true);
-		}
+		
+		
+		if(!mServer->IsHost(from))
+			mServer->AddClientChatText("Only hosts can change cvars.\n", RGB(255, 0, 0), false, adress);
+		else if(!mServer->IsInLobby() && elems[0] != Cvars::GIVE_GOLD && elems[0] != Cvars::RESTART_ROUND)
+			mServer->AddClientChatText("Can only change cvars in lobby.\n", RGB(255, 0, 0), false, adress);
 	}
 }
 

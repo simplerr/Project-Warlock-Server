@@ -38,7 +38,7 @@ public:
 	bool HandlePacket(RakNet::Packet* pPacket);
 
 	void SendClientMessage(RakNet::BitStream& bitstream, bool broadcast = true, RakNet::SystemAddress adress = RakNet::UNASSIGNED_SYSTEM_ADDRESS);
-	void AddClientChatText(string text, COLORREF color);
+	void AddClientChatText(string text, COLORREF color, bool broadcast = true, RakNet::SystemAddress adress = RakNet::UNASSIGNED_SYSTEM_ADDRESS);
 
 	RakNet::RakPeerInterface*	GetRaknetPeer();
 	vector<string>				GetConnectedClients();
@@ -51,6 +51,7 @@ public:
 	ServerArena*				GetArena();
 	string						GetHostName();
 	float						GetCvarValue(string cvar);
+	bool						IsInLobby();
 
 	void StartGame();
 	void SetGameSate(CurrentState state);
@@ -80,5 +81,6 @@ private:
 	string						mServerName;
 	string						mHostName;
 
+	bool						mInLobby;
 	map<string, int>			mScoreMap;
 };
