@@ -9,6 +9,7 @@
 #include "HookProjectile.h"
 #include "VenomProjectile.h"
 #include "Player.h"
+#include "Console.h"
 
 ServerSkillInterpreter::ServerSkillInterpreter()
 {
@@ -84,7 +85,9 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 		projectile->SetPosition(projectile->GetPosition() + XMFLOAT3(0, 2, 0));
 		sendBitstream.Write(projectile->GetId());
 	}
-	
+	char buffer[10];
+	sprintf(buffer, "(%i)", skillType);
+	gConsole->AddLine("[" + player->GetName() + "] CAST_SKILL " + buffer);
 
 	// Send it to all the clients.
 	pServer->SendClientMessage(sendBitstream);

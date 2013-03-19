@@ -12,6 +12,7 @@
 #include "Camera.h"
 #include "ItemLoaderXML.h"
 #include "Effects.h"
+#include "Console.h"
 
 ServerArena::ServerArena(Server* pServer)
 	: BaseArena()
@@ -110,7 +111,12 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		{
 			mServer->AddRoundCompleted();
 
-			// Add gold to the winner.
+			RemoveStatusEffects();
+
+			for(int i = 0; i < mPlayerList.size(); i++)
+				mPlayerList[i]->SetGold(mPlayerList[i]->GetGold() + 2);
+
+			// Add extra gold to the winner.
 			Player* winningPlayer = (Player*)mWorld->GetObjectByName(winner);
 			winningPlayer->SetGold(winningPlayer->GetGold() + mServer->GetCvarValue(Cvars::GOLD_PER_WIN));
 
@@ -125,6 +131,8 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 
 			// Increment winners score.
 			mServer->AddScore(winner, 1);
+
+			gConsole->AddLine(winner + " wins the round!");
 		}
 
 		BroadcastWorld();
@@ -144,6 +152,8 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 		RakNet::BitStream bitstream;
 		bitstream.Write((unsigned char)NMSG_FLOOD_START);
 		mServer->SendClientMessage(bitstream);
+
+		gConsole->AddLine("Lava flood started!");
 	}
 	else if(mFloodDelta < 0)
 	{
@@ -165,6 +175,12 @@ void ServerArena::Draw(GLib::Graphics* pGraphics)
 		mWorld->Draw(pGraphics);
 	else
 		pGraphics->DrawText("Players in lobby", 10, 200, 20);
+}
+
+void ServerArena::RemoveStatusEffects()
+{
+	for(int i = 0; i < mPlayerList.size(); i++) 
+		mPlayerList[i]->RemoveStatusEffects();
 }
 
 void ServerArena::StartGame()
@@ -276,6 +292,8 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 			bitstream.Write(projectile->GetId());	// Projectile Id.
 			bitstream.Write(player->GetId());	// Player Id.
 			mServer->SendClientMessage(bitstream);
+
+			gConsole->AddLine("Projectile - Player collision (" + to_string(player->GetId()) + ", " + to_string(projectile->GetId())+ ")");
 		}
 
 		// Remove the projectile.
@@ -295,6 +313,8 @@ void ServerArena::PlayerEliminated(Player* pKilled, Player* pEliminator)
 	bitstream.Write(pKilled->GetName().c_str());
 	bitstream.Write(pEliminator == nullptr ? "himself" : pEliminator->GetName().c_str());
 	mServer->SendClientMessage(bitstream);
+
+	gConsole->AddLine(pKilled->GetName() + " was killed by " + (pEliminator == nullptr ? "himself" : pEliminator->GetName()));
 }
 
 //! Removes a player from mPlayerList.

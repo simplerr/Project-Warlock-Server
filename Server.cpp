@@ -19,6 +19,7 @@
 #include "Database.h"
 #include "Config.h"
 #include "ServerCvars.h"
+#include "Console.h"
 
 Server::Server()
 {
@@ -51,6 +52,9 @@ Server::Server()
 	mCvars.LoadFromFile("cvars.cfg");
 
 	mInLobby = true;
+	
+	gConsole->AddLine("Server successfully started!");
+	gConsole->AddLine(mServerName.c_str());
 }
 
 Server::~Server()
@@ -61,7 +65,7 @@ Server::~Server()
 	delete mRoundHandler;
 	delete mArena;
 
-	mDatabase->RemoveServer("simpler");
+	mDatabase->RemoveServer(mHostName);
 	delete mDatabase;
 
 	mRaknetPeer->Shutdown(300);
@@ -101,6 +105,8 @@ void Server::StartGame()
 	RakNet::BitStream bitstream;
 	bitstream.Write((unsigned char)NMSG_GAME_STARTED);
 	SendClientMessage(bitstream);
+
+	gConsole->AddLine("Game starting!");
 }
 
 void Server::DrawScores(GLib::Graphics* pGraphics)

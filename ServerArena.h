@@ -36,6 +36,7 @@ public:
 	string	RemovePlayer(RakNet::SystemAddress adress);
 	void	RemovePlayer(int id);
 	void	PlayerEliminated(Player* pPlayer, Player* pEliminator);
+	void	RemoveStatusEffects();
 
 	GLib::World* GetWorld();
 	vector<Player*>* GetPlayerListPointer();

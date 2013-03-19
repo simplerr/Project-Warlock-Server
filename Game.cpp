@@ -15,6 +15,7 @@
 #include <fstream>
 #include "Database.h"
 #include "Sound.h"
+#include "Console.h"
 
 using namespace GLib;
 
@@ -22,6 +23,7 @@ using namespace GLib;
 GLib::Runnable* GLib::GlobalApp = nullptr;
 ServerCvars* gCvars = nullptr;
 Sound*	gSound = nullptr;
+Console* gConsole = nullptr;
 
 //! The program starts here.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
@@ -43,18 +45,29 @@ Game::Game(HINSTANCE hInstance, string caption, int width, int height)
 	// Cap the fps to 100.
 	//SetFpsCap(100.0f);
 	gCvars = new ServerCvars();
+
+	// Create a console window.
+	gConsole = new Console();
+	gConsole->Startup();
+
+	SetConsoleTitle("Warlock Server");
+
+	SetFpsCap(100.0f);
 }
 
 Game::~Game()
 {
 	delete mPeer;
 	delete gCvars;
+	delete gConsole;
 }
 
 void Game::Init()
 {
 	// Important to run Systems Init() function.
 	Runnable::Init();
+
+	ShowWindow(GetHwnd(), false);
 
 	// Add a camera.
 	GLib::CameraRTS* camera = new GLib::CameraRTS();
@@ -73,10 +86,16 @@ void Game::Update(GLib::Input* pInput, float dt)
 {
 	mPeer->Update(pInput, dt);
 	GetGraphics()->Update(pInput, dt);
+
+	char buffer[256];
+	sprintf(buffer, "Warlock Server (FPS: %.1f)", GetCurrentFps());
+	SetConsoleTitle(buffer);
 }
 
 void Game::Draw(GLib::Graphics* pGraphics)
 {
+	return;
+
 	// Clear the render target and depth/stencil.
 	pGraphics->ClearScene();
 

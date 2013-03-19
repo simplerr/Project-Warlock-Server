@@ -6,6 +6,7 @@
 #include "Graphics.h"
 #include "Player.h"
 #include "ServerArena.h"
+#include "Console.h"
 
 RoundHandler::RoundHandler()
 {
@@ -107,6 +108,8 @@ void RoundHandler::StartRound()
 	mRoundEnded = false;
 
 	mServer->GetArena()->StartRound();
+
+	gConsole->AddLine("Round starting!");
 }
 bool RoundHandler::HasRoundEnded(string& winner)
 {

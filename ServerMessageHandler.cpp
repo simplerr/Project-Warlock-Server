@@ -7,6 +7,7 @@
 #include "Player.h"
 #include "RoundHandler.h"
 #include "NetworkMessages.h"
+#include "Console.h"
 
 ServerMessageHandler::ServerMessageHandler(Server* pServer)
 {
@@ -52,6 +53,8 @@ void ServerMessageHandler::HandleConnectionLost(RakNet::BitStream& bitstream, Ra
 
 	OutputDebugString(string(name + " has disconnected!").c_str());
 
+	gConsole->AddLine(name + " has disconnected!");
+
 	// Tell the other clients about the disconnect.
 	mServer->SendClientMessage(sendBitstream);
 }
@@ -78,6 +81,11 @@ void ServerMessageHandler::HandleTargetAdded(RakNet::BitStream& bitstream)
 
 			// Send the TARGET_ADDED to all clients.
 			mServer->SendClientMessage(bitstream);
+
+			char buffer[64];
+			sprintf(buffer, "(%.1f, %.1f, %.1f)", x, y, z);
+			gConsole->AddLine("[" + actor->GetName() + "] ADD_TARGET " + buffer);
+
 			break;
 		}
 	}
@@ -98,7 +106,7 @@ void ServerMessageHandler::HandleConnectionData(RakNet::BitStream& bitstream, Ra
 	player->SetGold(mServer->GetCvarValue(Cvars::START_GOLD));
 	mServer->GetWorld()->AddObject(player);
 
-	OutputDebugString(string(name + " has connected!\n").c_str());
+	gConsole->AddLine(name + " has connected!");
 
 	// [TODO] Add model name and other attributes.
 	RakNet::BitStream sendBitstream;
@@ -163,6 +171,8 @@ void ServerMessageHandler::HandleCvarListRequest(RakNet::BitStream& bitstream, R
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOD_SIZE));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::CHEATS));
 
+	gConsole->AddLine("Sending cvar list...");
+
 	mServer->SendClientMessage(sendBitstream, false, adress);
 }
 
@@ -192,6 +202,10 @@ void ServerMessageHandler::HandleItemAdded(RakNet::BitStream& bitstream, RakNet:
 	sendBitstream.Write(level);
 
 	mServer->SendClientMessage(sendBitstream, true, adress);
+
+	char buffer[32];
+	sprintf(buffer, "(%i, %i)", name, level);
+	gConsole->AddLine("[" + player->GetName() + "] ITEM_ADDED " + buffer);
 }
 
 void ServerMessageHandler::HandleItemRemoved(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
@@ -215,6 +229,10 @@ void ServerMessageHandler::HandleItemRemoved(RakNet::BitStream& bitstream, RakNe
 	sendBitstream.Write(level);
 
 	mServer->SendClientMessage(sendBitstream, true, adress);
+
+	char buffer[32];
+	sprintf(buffer, "(%i, %i)", name, level);
+	gConsole->AddLine("[" + player->GetName() + "] ITEM_REMOVED " + buffer);
 }
 
 void ServerMessageHandler::HandleGoldChange(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
@@ -223,7 +241,10 @@ void ServerMessageHandler::HandleGoldChange(RakNet::BitStream& bitstream, RakNet
 	bitstream.Read(id);
 	bitstream.Read(gold);
 
-	((Player*)mServer->GetWorld()->GetObjectById(id))->SetGold(gold);
+	Player* player = ((Player*)mServer->GetWorld()->GetObjectById(id));
+	player->SetGold(gold);
+
+	gConsole->AddLine("[" + player->GetName() + "] GOLD_CHANGE " + to_string(gold));
 }
 
 void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNet::SystemAddress adress)
@@ -237,6 +258,8 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNe
 
 	bitstream.Read(from);
 	bitstream.Read(message);
+
+	gConsole->AddLine("<" + string(from) + ">: " + string(message).substr(0, string(message).size() - 1));
 
 	string msg = string(message).substr(0, string(message).size() - 2);
 	vector<string> elems = GLib::SplitString(msg, ' ');
@@ -253,6 +276,8 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNe
 					// Send cvar change message.
 					mServer->SetCvarValue(elems[0], value);
 					SendCvarValue(adress, elems[0], value, true);
+
+					gConsole->AddLine(elems[0] + " changed to " + to_string(value));
 				}
 			}
 			else
@@ -302,6 +327,8 @@ void ServerMessageHandler::HandleRematchRequest(RakNet::BitStream& bitstream)
 	RakNet::BitStream sendBitstream;
 	sendBitstream.Write((unsigned char)NMSG_PERFORM_REMATCH);
 	mServer->SendClientMessage(sendBitstream);
+
+	gConsole->AddLine("Rematch!");
 }
 
 void ServerMessageHandler::SendCvarValue(RakNet::SystemAddress adress, string cvar, int value, bool show)
