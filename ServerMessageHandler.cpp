@@ -168,7 +168,7 @@ void ServerMessageHandler::HandleCvarListRequest(RakNet::BitStream& bitstream, R
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::PROJECTILE_IMPULSE));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::ARENA_RADIUS));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOOD_INTERVAL));
-	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOD_SIZE));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::FLOOD_SIZE));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::CHEATS));
 
 	gConsole->AddLine("Sending cvar list...");
@@ -284,8 +284,12 @@ void ServerMessageHandler::HandleChatMessage(RakNet::BitStream& bitstream, RakNe
 			{
 				if(elems[0] == Cvars::RESTART_ROUND)
 				{
-					if(mServer->GetCvarValue(Cvars::CHEATS) == 1)
-						mServer->GetRoundHandler()->StartRound();
+					if(mServer->GetCvarValue(Cvars::CHEATS) == 1) {
+						HandleRematchRequest(bitstream);
+						//mServer->GetRoundHandler()->StartRound();
+						//mServer->GetArena()->StartGame();
+
+					}
 					else
 						mServer->AddClientChatText("Cheats are turned off (-cheats 0).\n", RGB(255, 0, 0), false, adress);
 				}
@@ -322,6 +326,7 @@ void ServerMessageHandler::HandleRematchRequest(RakNet::BitStream& bitstream)
 	mServer->GetRoundHandler()->StartRound();
 	mServer->GetRoundHandler()->Rematch();
 	mServer->GetArena()->StartGame();
+	//mServer->GetItemLoader()->ReloadItems();
 
 	// Inform all clients about the rematch.
 	RakNet::BitStream sendBitstream;

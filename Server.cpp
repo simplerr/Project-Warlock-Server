@@ -29,7 +29,7 @@ Server::Server()
 	mRaknetPeer = RakNet::RakPeerInterface::GetInstance();
 
 	mSkillInterpreter = new ServerSkillInterpreter();
-	mItemLoader = new ItemLoaderXML("items.xml");	// [NOTE]!
+	mItemLoader = new ItemLoaderXML("data/items.xml");	// [NOTE]!
 	mMessageHandler = new ServerMessageHandler(this);
 
 	mArena = new ServerArena(this);
@@ -39,7 +39,7 @@ Server::Server()
 	mRoundHandler->SetPlayerList(mArena->GetPlayerListPointer());
 
 	// Load the server and nickname from config.txt.
-	Config config("config.txt");
+	Config config("data/config.txt");
 	mServerName =  config.serverName;
 	mHostName = config.nickName;
 
@@ -49,7 +49,7 @@ Server::Server()
 	// Temp
 	//mRoundHandler->StartLobbyCountdown();
 
-	mCvars.LoadFromFile("cvars.cfg");
+	mCvars.LoadFromFile("data/cvars.cfg");
 
 	mInLobby = true;
 	
@@ -59,6 +59,11 @@ Server::Server()
 
 Server::~Server()
 {
+	// Send NMSG_SERVER_SHUTDOWN to all connected players.
+	RakNet::BitStream bitstream;
+	bitstream.Write((unsigned char)NMSG_SERVER_SHUTDOWN);
+	SendClientMessage(bitstream);
+
 	delete mSkillInterpreter;
 	delete mMessageHandler;
 	delete mItemLoader;

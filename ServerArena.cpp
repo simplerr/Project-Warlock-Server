@@ -157,7 +157,7 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 	}
 	else if(mFloodDelta < 0)
 	{
-		float floadSize = mServer->GetCvarValue(Cvars::FLOD_SIZE);
+		float floadSize = mServer->GetCvarValue(Cvars::FLOOD_SIZE);
 		mArenaRadius = mArenaFloodStartRadius - floadSize * (1 - (-mFloodDelta / 5));
 		GLib::Effects::TerrainFX->SetArenaRadius(mArenaRadius);
 
@@ -186,6 +186,9 @@ void ServerArena::RemoveStatusEffects()
 void ServerArena::StartGame()
 {
 	mGameStarted = true;
+
+	for(int i = 0; i < mPlayerList.size(); i++) 
+		mPlayerList[i]->SetGold(mServer->GetCvarValue(Cvars::START_GOLD));
 }
 
 void ServerArena::StartRound()
@@ -255,12 +258,12 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 	GLib::ObjectType typeA = pObjectA->GetType();
 	GLib::ObjectType typeB = pObjectB->GetType();
 
-	Projectile* projectile = pObjectA->GetType() == GLib::PROJECTILE ? (Projectile*)pObjectA : (Projectile*)pObjectB;
-	Player* player = pObjectA->GetType() == GLib::PLAYER ? (Player*)pObjectA : (Player*)pObjectB;
-
 	// Player - Projectile collision only.
 	if((pObjectB->GetType() == GLib::PLAYER && pObjectA->GetType() == GLib::PROJECTILE) || (pObjectB->GetType() == GLib::PROJECTILE && pObjectA->GetType() == GLib::PLAYER))
 	{
+		Projectile* projectile = pObjectA->GetType() == GLib::PROJECTILE ? (Projectile*)pObjectA : (Projectile*)pObjectB;
+		Player* player = pObjectA->GetType() == GLib::PLAYER ? (Player*)pObjectA : (Player*)pObjectB;
+
 		if(projectile->GetOwner() == player->GetId())
 			return;
 
@@ -298,6 +301,22 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 
 		// Remove the projectile.
 		mWorld->RemoveObject(projectile);
+	}
+	else if(pObjectA->GetType() == GLib::PROJECTILE && pObjectB->GetType() == GLib::PROJECTILE)
+	{
+		Projectile* projectileA = (Projectile*)pObjectA;
+		Projectile* projectileB = (Projectile*)pObjectB;
+
+		if(projectileA->GetOwner() != projectileB->GetOwner())
+		{
+			pObjectA->Kill();
+			pObjectB->Kill();
+
+			// Tell all clients about the collision.
+			RakNet::BitStream bitstream;
+			bitstream.Write((unsigned char)NMSG_PROJECTILE_PROJECTILE_COLLISION);
+			mServer->SendClientMessage(bitstream);
+		}
 	}
 }
 

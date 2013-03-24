@@ -8,6 +8,7 @@
 #include "MeteorProjectile.h"
 #include "HookProjectile.h"
 #include "VenomProjectile.h"
+#include "GrapplingHook.h"
 #include "Player.h"
 #include "Console.h"
 
@@ -66,6 +67,10 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 	{
 		projectile = new VenomProjectile(owner, start, dir);
 	}
+	else if(id == SKILL_GRAPPLING_HOOK) 
+	{
+		projectile = new GrapplingHook(owner, start, dir);
+	}
 
 	RakNet::BitStream sendBitstream;
 	sendBitstream.Write((unsigned char)NMSG_SKILL_CAST);
@@ -76,7 +81,7 @@ void ServerSkillInterpreter::Interpret(Server* pServer, MessageId id, RakNet::Bi
 	sendBitstream.Write(start);
 	sendBitstream.Write(end);
 
-	if(id == SKILL_FIREBALL || id == SKILL_FROSTNOVA || id == SKILL_METEOR || id == SKILL_HOOK || id == SKILL_VENOM)
+	if(id == SKILL_FIREBALL || id == SKILL_FROSTNOVA || id == SKILL_METEOR || id == SKILL_HOOK || id == SKILL_VENOM || id == SKILL_GRAPPLING_HOOK)
 	{
 		world->AddObject(projectile);
 		projectile->SetSkillLevel(skillLevel);
