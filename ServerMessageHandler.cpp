@@ -30,9 +30,9 @@ void ServerMessageHandler::HandleNewConnection(RakNet::BitStream& bitstream, Rak
 	sendBitstream.Write(world->GetNumObjects(GLib::PLAYER));
 
 	GLib::ObjectList* objects = world->GetObjects();
-	for(int i = 0; i < objects->size(); i++)
+	for(auto iter = objects->begin(); iter != objects->end(); iter++)
 	{
-		GLib::Object3D* object = objects->operator[](i);
+		GLib::Object3D* object = (*iter);
 		if(object->GetType() == GLib::PLAYER) {
 			sendBitstream.Write(object->GetName().c_str());
 			sendBitstream.Write(object->GetId());
@@ -73,9 +73,9 @@ void ServerMessageHandler::HandleTargetAdded(RakNet::BitStream& bitstream)
 	bitstream.Read(clear);
 
 	GLib::ObjectList* objects = mServer->GetWorld()->GetObjects();
-	for(int i = 0; i < objects->size(); i++)
+	for(auto iter = objects->begin(); iter != objects->end(); iter++)
 	{
-		Actor* actor = (Actor*)objects->operator[](i);
+		Actor* actor = (Actor*)(*iter);
 		if(actor->GetId() == id && !actor->IsKnockedBack()) {
 			actor->AddTarget(XMFLOAT3(x, y, z), clear);
 
@@ -143,9 +143,9 @@ void ServerMessageHandler::HandleNamesRequest(RakNet::BitStream& bitstream, RakN
 
 	vector<string> clients;
 	GLib::ObjectList* objects = world->GetObjects();
-	for(int i = 0; i < objects->size(); i++)
+	for(auto iter = objects->begin(); iter != objects->end(); iter++)
 	{
-		GLib::Object3D* object = objects->operator[](i);
+		GLib::Object3D* object = (*iter);
 		if(object->GetType() == GLib::PLAYER)
 			sendBitstream.Write(object->GetName().c_str());
 	}

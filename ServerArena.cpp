@@ -35,11 +35,11 @@ ServerArena::ServerArena(Server* pServer)
 	/************************************************************************/
 	/* Add a test player.                                                   */
 	/************************************************************************/
-	Player* testDoll = new Player();
-	testDoll->SetPosition(XMFLOAT3(0, 0, 10));
-	testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
-	testDoll->AddItem(pServer->GetItemLoader(), ItemKey(KNOCKBACK_SHIELD, 3));
-	mWorld->AddObject(testDoll);
+	//Player* testDoll = new Player();
+	//testDoll->SetPosition(XMFLOAT3(0, 0, 10));
+	//testDoll->SetScale(XMFLOAT3(0.1f, 0.1f, 0.1f));	// [NOTE]
+	//testDoll->AddItem(pServer->GetItemLoader(), ItemKey(KNOCKBACK_SHIELD, 3));
+	//mWorld->AddObject(testDoll);
 
 	GLib::GetGraphics()->GetCamera()->SetPosition(XMFLOAT3(0, 150, 30));
 	GLib::GetGraphics()->GetCamera()->SetTarget(XMFLOAT3(0, 0, 0));
@@ -202,9 +202,9 @@ void ServerArena::BroadcastWorld()
 {
 	// Broadcast world data at a set tickrate.
 	GLib::ObjectList* objects = mWorld->GetObjects();
-	for(int i = 0; i < objects->size(); i++)
+	for(auto iter = objects->begin(); iter != objects->end(); iter++)
 	{
-		GLib::Object3D* object = (GLib::Object3D*)objects->operator[](i);
+		GLib::Object3D* object = (*iter);
 		XMFLOAT3 pos = object->GetPosition();
 		XMFLOAT3 rotation = object->GetRotation();
 
@@ -300,7 +300,7 @@ void ServerArena::OnObjectCollision(GLib::Object3D* pObjectA, GLib::Object3D* pO
 		}
 
 		// Remove the projectile.
-		mWorld->RemoveObject(projectile);
+		projectile->Kill();
 	}
 	else if(pObjectA->GetType() == GLib::PROJECTILE && pObjectB->GetType() == GLib::PROJECTILE)
 	{

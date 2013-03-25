@@ -263,7 +263,7 @@ RoundHandler* Server::GetRoundHandler()
 
 bool Server::IsHost(string name)
 {
-	return true;
+	return mHostName == name;
 }
 
 float Server::GetCvarValue(string cvar)
