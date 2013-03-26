@@ -164,6 +164,7 @@ void ServerMessageHandler::HandleCvarListRequest(RakNet::BitStream& bitstream, R
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::NUM_ROUNDS));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::GOLD_PER_KILL));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::GOLD_PER_WIN));
+	sendBitstream.Write(mServer->GetCvarValue(Cvars::GOLD_PER_ROUND));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::LAVA_DMG));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::PROJECTILE_IMPULSE));
 	sendBitstream.Write(mServer->GetCvarValue(Cvars::ARENA_RADIUS));

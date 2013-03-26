@@ -114,7 +114,7 @@ void ServerArena::Update(GLib::Input* pInput, float dt)
 			RemoveStatusEffects();
 
 			for(int i = 0; i < mPlayerList.size(); i++)
-				mPlayerList[i]->SetGold(mPlayerList[i]->GetGold() + 2);
+				mPlayerList[i]->SetGold(mPlayerList[i]->GetGold() + mServer->GetCvarValue(Cvars::GOLD_PER_ROUND));
 
 			// Add extra gold to the winner.
 			Player* winningPlayer = (Player*)mWorld->GetObjectByName(winner);
@@ -211,7 +211,7 @@ void ServerArena::BroadcastWorld()
 		RakNet::BitStream bitstream;
 		bitstream.Write((unsigned char)NMSG_WORLD_UPDATE);
 		bitstream.Write(object->GetType());
-		bitstream.Write((unsigned char)object->GetId());
+		bitstream.Write(object->GetId());
 		bitstream.Write(pos.x);
 		bitstream.Write(pos.y);
 		bitstream.Write(pos.z);
@@ -226,6 +226,7 @@ void ServerArena::BroadcastWorld()
 			bitstream.Write(player->GetDeathTimer());
 			bitstream.Write(player->GetCurrentHealth());
 			bitstream.Write(player->GetGold());
+			bitstream.Write(player->GetEliminated() ? 1 : 0);
 		}
 
 		mServer->SendClientMessage(bitstream);

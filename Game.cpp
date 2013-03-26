@@ -95,7 +95,6 @@ void Game::Update(GLib::Input* pInput, float dt)
 void Game::Draw(GLib::Graphics* pGraphics)
 {
 	return;
-
 	// Clear the render target and depth/stencil.
 	pGraphics->ClearScene();
 
